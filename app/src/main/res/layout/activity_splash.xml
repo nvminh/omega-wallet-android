@@ -20,6 +20,14 @@
             android:background="@drawable/ic_logo_vertical"
             android:gravity="center_horizontal" />
 
+        <TextView
+            android:id="@+id/textView2"
+            android:layout_width="match_parent"
+            android:layout_height="42dp"
+            android:fontFamily="@font/font_bold"
+            android:gravity="center"
+            android:text="@string/display_app_name" />
+
     </LinearLayout>
 
     <LinearLayout

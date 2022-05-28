@@ -46,6 +46,7 @@ public abstract class EthereumNetworkBase { // implements EthereumNetworkReposit
     public static final long MILKOMEDA_C1_ID = 2001;
     public static final long MILKOMEDA_C1_TEST_ID = 200101;
     public static final long PHI_MAIN_ID = 4181;
+    public static final long PHI_TEST_ID = 4182;
 
 
     public static final String MAINNET_RPC_URL = "https://mainnet.infura.io/v3/da3717f25f824cc1baa32d812386d93f";
