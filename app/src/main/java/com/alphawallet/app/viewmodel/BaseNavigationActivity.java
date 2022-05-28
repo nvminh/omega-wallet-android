@@ -5,7 +5,7 @@ import android.view.View;
 import com.alphawallet.app.R;
 import com.alphawallet.app.entity.WalletPage;
 import com.alphawallet.app.ui.BaseActivity;
-import com.alphawallet.app.widget.AWalletBottomNavigationView;
+import com.omegawallet.app.widget.AWalletBottomNavigationView;
 
 public class BaseNavigationActivity extends BaseActivity implements AWalletBottomNavigationView.OnBottomNavigationItemSelectedListener {
     private AWalletBottomNavigationView nav;
@@ -43,7 +43,7 @@ public class BaseNavigationActivity extends BaseActivity implements AWalletBotto
 
     public void removeDappBrowser()
     {
-        nav.hideBrowserTab();
+//        nav.hideBrowserTab();
     }
 
     public void hideNavBar() { nav.setVisibility(View.GONE); }
