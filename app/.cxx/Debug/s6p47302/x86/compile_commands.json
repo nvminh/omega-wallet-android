@@ -1,0 +1,7 @@
+[
+{
+  "directory": "/Users/minhnguyen/projects/blockchains/omega-wallet/omega-wallet-android/app/.cxx/Debug/s6p47302/x86",
+  "command": "/Users/minhnguyen/Library/Android/sdk/ndk/21.4.7075529/toolchains/llvm/prebuilt/darwin-x86_64/bin/clang --target=i686-none-linux-android23 --gcc-toolchain=/Users/minhnguyen/Library/Android/sdk/ndk/21.4.7075529/toolchains/llvm/prebuilt/darwin-x86_64 --sysroot=/Users/minhnguyen/Library/Android/sdk/ndk/21.4.7075529/toolchains/llvm/prebuilt/darwin-x86_64/sysroot -Dkeys_EXPORTS  -g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -mstackrealign -D_FORTIFY_SOURCE=2 -Wformat -Werror=format-security -DIFKEY=\\\"\"da3717f25f824cc1baa32d812386d93f\"\\\" -DOSKEY=\\\"\"...\"\\\" -DPSKEY=\\\"\"\"\\\" -DASKEY=\\\"\"HFDDY5BNKGXBB82DE2G8S64C3C41B76PYI\"\\\" -O0 -fno-limit-debug-info  -fPIC   -o CMakeFiles/keys.dir/keys.c.o   -c /Users/minhnguyen/projects/blockchains/omega-wallet/omega-wallet-android/app/src/main/cpp/keys.c",
+  "file": "/Users/minhnguyen/projects/blockchains/omega-wallet/omega-wallet-android/app/src/main/cpp/keys.c"
+}
+]

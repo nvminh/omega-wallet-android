@@ -1,0 +1,24 @@
+                    Executable : /Users/minhnguyen/Library/Android/sdk/cmake/3.10.2.4988404/bin/cmake
+arguments : 
+-H/Users/minhnguyen/projects/blockchains/omega-wallet/omega-wallet-android/app/src/main/cpp
+-DCMAKE_SYSTEM_NAME=Android
+-DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+-DCMAKE_SYSTEM_VERSION=23
+-DANDROID_PLATFORM=android-23
+-DANDROID_ABI=x86
+-DCMAKE_ANDROID_ARCH_ABI=x86
+-DANDROID_NDK=/Users/minhnguyen/Library/Android/sdk/ndk/21.4.7075529
+-DCMAKE_ANDROID_NDK=/Users/minhnguyen/Library/Android/sdk/ndk/21.4.7075529
+-DCMAKE_TOOLCHAIN_FILE=/Users/minhnguyen/Library/Android/sdk/ndk/21.4.7075529/build/cmake/android.toolchain.cmake
+-DCMAKE_MAKE_PROGRAM=/Users/minhnguyen/Library/Android/sdk/cmake/3.10.2.4988404/bin/ninja
+-DCMAKE_C_FLAGS=-DIFKEY=\""da3717f25f824cc1baa32d812386d93f"\" -DOSKEY=\""..."\" -DPSKEY=\"""\" -DASKEY=\""HFDDY5BNKGXBB82DE2G8S64C3C41B76PYI"\"
+-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=/Users/minhnguyen/projects/blockchains/omega-wallet/omega-wallet-android/app/build/intermediates/cxx/Debug/s6p47302/obj/x86
+-DCMAKE_RUNTIME_OUTPUT_DIRECTORY=/Users/minhnguyen/projects/blockchains/omega-wallet/omega-wallet-android/app/build/intermediates/cxx/Debug/s6p47302/obj/x86
+-DCMAKE_BUILD_TYPE=Debug
+-B/Users/minhnguyen/projects/blockchains/omega-wallet/omega-wallet-android/app/.cxx/Debug/s6p47302/x86
+-GNinja
+jvmArgs : 
+
+
+                    Build command args: []
+                    Version: 2

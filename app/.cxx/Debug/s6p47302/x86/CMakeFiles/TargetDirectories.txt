@@ -1,0 +1,3 @@
+/Users/minhnguyen/projects/blockchains/omega-wallet/omega-wallet-android/app/.cxx/Debug/s6p47302/x86/CMakeFiles/rebuild_cache.dir
+/Users/minhnguyen/projects/blockchains/omega-wallet/omega-wallet-android/app/.cxx/Debug/s6p47302/x86/CMakeFiles/edit_cache.dir
+/Users/minhnguyen/projects/blockchains/omega-wallet/omega-wallet-android/app/.cxx/Debug/s6p47302/x86/CMakeFiles/keys.dir
