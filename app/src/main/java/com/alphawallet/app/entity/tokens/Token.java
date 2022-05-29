@@ -918,7 +918,7 @@ public class Token
 
     public List<Integer> getStandardFunctions()
     {
-        return Arrays.asList(R.string.action_send, R.string.action_receive);
+        return Arrays.asList(R.string.action_swap, R.string.action_send, R.string.action_receive);
     }
 
     public List<NFTAsset> getAssetListFromTransaction(Transaction tx)

@@ -414,6 +414,12 @@ public class Erc20DetailActivity extends BaseActivity implements StandardFunctio
     }
 
     @Override
+    public void showSwap()
+    {
+        viewModel.showSwapToken(this, wallet, token);
+    }
+
+    @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data)
     {
         super.onActivityResult(requestCode, resultCode, data);

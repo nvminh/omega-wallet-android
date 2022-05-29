@@ -257,11 +257,16 @@ public class FunctionButtonBar extends LinearLayout implements AdapterView.OnIte
         {
             callStandardFunctions.showReceive();
         }
+        else if (action.buttonId == R.string.action_swap)
+        {
+            callStandardFunctions.showSwap();
+        }
         else if (action.buttonId == R.string.action_transfer)
         {
             if (isSelectionValid(action.buttonId))
                 callStandardFunctions.showTransferToken(selection);
         }
+
         else if (action.buttonId == R.string.action_use)
         {
             if (isSelectionValid(action.buttonId))

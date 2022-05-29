@@ -21,6 +21,7 @@ import com.alphawallet.app.service.TokensService;
 import com.alphawallet.token.entity.SigReturnType;
 import com.alphawallet.token.entity.XMLDsigDescriptor;
 import com.alphawallet.token.tools.TokenDefinition;
+import com.omegawallet.app.router.SwapTokenRouter;
 
 import javax.inject.Inject;
 
@@ -94,6 +95,15 @@ public class Erc20DetailViewModel extends BaseViewModel {
         if (token != null)
         {
             new SendTokenRouter().open(act, wallet.address, token.getSymbol(), token.tokenInfo.decimals,
+                    wallet, token, token.tokenInfo.chainId);
+        }
+    }
+
+    public void showSwapToken(Activity act, Wallet wallet, Token token)
+    {
+        if (token != null)
+        {
+            new SwapTokenRouter().open(act, wallet.address, token.getSymbol(), token.tokenInfo.decimals,
                     wallet, token, token.tokenInfo.chainId);
         }
     }

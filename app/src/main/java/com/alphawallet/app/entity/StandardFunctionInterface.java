@@ -17,6 +17,8 @@ public interface StandardFunctionInterface
 
     default void showReceive() { }
 
+    default void showSwap() { }
+
     default void updateAmount() { }
 
     default void displayTokenSelectionError(TSAction action) { }

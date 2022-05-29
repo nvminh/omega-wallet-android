@@ -3,6 +3,7 @@
     <!-- String related to sending -->
     <string name="action_send">Send</string>
     <string name="action_send_tkn">Send %1$s</string>
+    <string name="action_swap_tkn">Swap %1$s</string>
     <string name="recipient">Recipient</string>
     <string name="error_field_required">This field is required</string>
     <string name="action_settings">Settings</string>
@@ -547,6 +548,7 @@
     <string name="no_fingerprint_enrolled">No fingerprints Enrolled. Use PIN</string>
     <string name="cannot_process_fingerprint">Unable to process fingerprint. Use PIN</string>
     <string name="action_receive">Receive</string>
+    <string name="action_swap">Swap</string>
     <string name="tokenscript_error">TokenScript Element Error</string>
     <string name="tokenscript_error_detail">Error in TokenScript element: %1$s</string>
     <string name="tokenscript_element_not_present">function input \'%1$s\' not found in HTML elements.</string>
@@ -932,4 +934,6 @@
     <string name="message_transaction_timeout">The transaction has timed out. You can view the status in activity page.</string>
     <string name="error_transaction_timeout">Transaction Timeout</string>
     <string name="action_node_status">Node Status</string>
+    <string name="swap_request">Swap Request</string>
+    <string name="title_activity_swap">Swap</string>
 </resources>
