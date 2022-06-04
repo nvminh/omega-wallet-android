@@ -1005,4 +1005,8 @@ public class Token
     {
         return null;
     }
+
+    public TokenInfo getTokenInfo() {
+        return tokenInfo;
+    }
 }
