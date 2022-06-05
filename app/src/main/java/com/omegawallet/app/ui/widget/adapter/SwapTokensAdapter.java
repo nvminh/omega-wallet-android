@@ -18,6 +18,7 @@ import com.alphawallet.app.ui.widget.holder.TokenHolder;
 public class SwapTokensAdapter extends TokensAdapter {
     private Token fromToken;
     private View selectedItem;
+    private Token selectedToken;
     private int unselectedColor = -1;
 
     public SwapTokensAdapter(TokensAdapterCallback tokensAdapterCallback, AssetDefinitionService aService, TokensService tService, ActivityResultLauncher<Intent> launcher, Token fromToken) {
@@ -49,10 +50,15 @@ public class SwapTokensAdapter extends TokensAdapter {
         holder.itemView.setOnClickListener(view -> {
             if(holder.getClass() == TokenHolder.class) {
                 selectedItem = view;
+                selectedToken = ((TokenHolder)holder).token;
                 notifyDataSetChanged();
             }
         });
 
         holder.itemView.setBackgroundColor(holder.itemView == selectedItem ? Color.LTGRAY : unselectedColor);
+    }
+
+    public Token getSelectedToken() {
+        return selectedToken;
     }
 }

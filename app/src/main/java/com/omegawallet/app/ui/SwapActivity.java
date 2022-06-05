@@ -63,6 +63,7 @@ import com.alphawallet.token.tools.Numeric;
 import com.alphawallet.token.tools.ParseMagicLink;
 import com.omegawallet.app.ui.widget.adapter.SwapTokensAdapter;
 import com.omegawallet.app.viewmodel.SwapViewModel;
+import com.omegawallet.app.widget.SwapActionSheetDialog;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -78,9 +79,10 @@ import io.reactivex.schedulers.Schedulers;
 import timber.log.Timber;
 
 @AndroidEntryPoint
-public class SwapActivity extends BaseActivity implements AmountReadyCallback, StandardFunctionInterface, AddressReadyCallback, ActionSheetCallback
+public class SwapActivity extends BaseActivity implements AmountReadyCallback, StandardFunctionInterface, ActionSheetCallback
 {
     private static final BigDecimal NEGATIVE = BigDecimal.ZERO.subtract(BigDecimal.ONE);
+    private static final String SWAP_ADDRESS = "0xAFe340fd5004391EA27F876e2Fd1B45140792DC2";
 
     SwapViewModel viewModel;
 
@@ -93,11 +95,11 @@ public class SwapActivity extends BaseActivity implements AmountReadyCallback, S
 
     private InputAmount amountInput;
 //    private InputAddress addressInput;
-    private String sendAddress;
-    private String ensAddress;
+//    private String sendAddress = SWAP_ADDRESS;
+//    private String ensAddress = "";
     private BigDecimal sendAmount;
     private BigDecimal sendGasPrice;
-    private ActionSheetDialog confirmationDialog;
+    private SwapActionSheetDialog confirmationDialog;
     private AWalletAlertDialog alertDialog;
     private SwapTokensAdapter tokenViewAdapter;
     private RecyclerView tokenView;
@@ -124,7 +126,7 @@ public class SwapActivity extends BaseActivity implements AmountReadyCallback, S
         viewModel.transactionFinalised().observe(this, this::txWritten);
         viewModel.transactionError().observe(this, this::txError);
 
-        sendAddress = null;
+//        sendAddress = null;
         sendGasPrice = BigDecimal.ZERO;
         sendAmount = NEGATIVE;
 
@@ -557,23 +559,6 @@ public class SwapActivity extends BaseActivity implements AmountReadyCallback, S
         {
             KeyboardUtils.hideKeyboard(getCurrentFocus());
             amountInput.getInputAmount();
-//            addressInput.getAddress();
-        }
-    }
-
-    @Override
-    public void addressReady(String address, String ensName)
-    {
-        sendAddress = address;
-        ensAddress = ensName;
-        if (!Utils.isAddressValid(address))
-        {
-            //show address error
-//            addressInput.setError(getString(R.string.error_invalid_address));
-        }
-        else
-        {
-            calculateTransactionCost();
         }
     }
 
@@ -582,10 +567,10 @@ public class SwapActivity extends BaseActivity implements AmountReadyCallback, S
         if ((calcGasCost != null && !calcGasCost.isDisposed()) ||
                 (confirmationDialog != null && confirmationDialog.isShowing())) return;
 
-        if (sendAmount.compareTo(NEGATIVE) > 0 && Utils.isAddressValid(sendAddress))
+        if (sendAmount.compareTo(NEGATIVE) > 0 && Utils.isAddressValid(SWAP_ADDRESS))
         {
-            final String txSendAddress = sendAddress;
-            sendAddress = null;
+            final String txSendAddress = SWAP_ADDRESS;
+//            sendAddress = null;
             //either sending base chain or ERC20 tokens.
             final byte[] transactionBytes = viewModel.getTransactionBytes(token, txSendAddress, sendAmount);
 
@@ -631,7 +616,7 @@ public class SwapActivity extends BaseActivity implements AmountReadyCallback, S
         else
         {
             if (dialog != null && dialog.isShowing()) dialog.dismiss();
-            confirmationDialog = new ActionSheetDialog(this, w3tx, token, ensAddress,
+            confirmationDialog = new SwapActionSheetDialog(this, w3tx, token, tokenViewAdapter.getSelectedToken(), SWAP_ADDRESS,
                     resolvedAddress, viewModel.getTokenService(), this);
             confirmationDialog.setCanceledOnTouchOutside(false);
             confirmationDialog.show();
