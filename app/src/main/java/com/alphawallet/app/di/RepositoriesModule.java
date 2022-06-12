@@ -1,5 +1,7 @@
 package com.alphawallet.app.di;
 
+import static com.alphawallet.app.service.KeystoreAccountService.KEYSTORE_FOLDER;
+
 import android.content.Context;
 
 import com.alphawallet.app.repository.EthereumNetworkRepository;
@@ -36,6 +38,7 @@ import com.alphawallet.app.service.TransactionsNetworkClient;
 import com.alphawallet.app.service.TransactionsNetworkClientType;
 import com.alphawallet.app.service.TransactionsService;
 import com.google.gson.Gson;
+import com.omegawallet.app.service.SwapService;
 
 import java.io.File;
 
@@ -47,8 +50,6 @@ import dagger.hilt.InstallIn;
 import dagger.hilt.android.qualifiers.ApplicationContext;
 import dagger.hilt.components.SingletonComponent;
 import okhttp3.OkHttpClient;
-
-import static com.alphawallet.app.service.KeystoreAccountService.KEYSTORE_FOLDER;
 
 @Module
 @InstallIn(SingletonComponent.class)
@@ -218,5 +219,11 @@ public class RepositoriesModule {
 	@Provides
 	AnalyticsServiceType provideAnalyticsService(@ApplicationContext Context ctx) {
 		return new AnalyticsService(ctx);
+	}
+
+	@Singleton
+	@Provides
+	SwapService provideSwapService(KeyService keyService, GasService gasService) {
+		return new SwapService(keyService, gasService);
 	}
 }

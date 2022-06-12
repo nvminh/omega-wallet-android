@@ -28,9 +28,9 @@ import com.alphawallet.app.service.GasService;
 import com.alphawallet.app.service.KeyService;
 import com.alphawallet.app.service.TokensService;
 import com.alphawallet.app.ui.ImportTokenActivity;
-import com.alphawallet.app.ui.widget.adapter.TokensAdapter;
 import com.alphawallet.app.viewmodel.BaseViewModel;
 import com.alphawallet.app.web3.entity.Web3Transaction;
+import com.omegawallet.app.service.SwapService;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -55,6 +55,7 @@ public class SwapViewModel extends BaseViewModel {
     private final GasService gasService;
     private final AssetDefinitionService assetDefinitionService;
     private final KeyService keyService;
+    private final SwapService swapService;
     private final CreateTransactionInteract createTransactionInteract;
     private final AnalyticsServiceType analyticsService;
     private final FetchTokensInteract fetchTokensInteract;
@@ -70,6 +71,7 @@ public class SwapViewModel extends BaseViewModel {
                          GasService gasService,
                          AssetDefinitionService assetDefinitionService,
                          KeyService keyService,
+                         SwapService swapService,
                          AnalyticsServiceType analyticsService, FetchTokensInteract fetchTokensInteract)
     {
         this.myAddressRouter = myAddressRouter;
@@ -79,9 +81,18 @@ public class SwapViewModel extends BaseViewModel {
         this.gasService = gasService;
         this.assetDefinitionService = assetDefinitionService;
         this.keyService = keyService;
+        this.swapService = swapService;
         this.createTransactionInteract = createTransactionInteract;
         this.analyticsService = analyticsService;
         this.fetchTokensInteract = fetchTokensInteract;
+    }
+
+    public KeyService getKeyService() {
+        return this.keyService;
+    }
+
+    public SwapService getSwapService() {
+        return swapService;
     }
 
     public LiveData<TokenCardMeta[]> tokens() {

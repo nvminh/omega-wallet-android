@@ -72,9 +72,9 @@ import java.security.UnrecoverableKeyException;
 import java.security.cert.CertificateException;
 import java.util.ArrayList;
 import java.util.Enumeration;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 
 import javax.crypto.Cipher;
 import javax.crypto.CipherInputStream;
@@ -810,6 +810,43 @@ public class KeyService implements AuthenticationCallback, PinAuthenticationCall
         requireAuthentication = false;
     }
 
+    private void checkAuthentication(Operation operation, AuthenticationCallback authCallback)
+    {
+//        //first check if the phone is unlocked
+//        String dialogTitle;
+//        switch (operation)
+//        {
+//            case UPGRADE_HD_KEY:
+//            case UPGRADE_KEYSTORE_KEY:
+//            case CREATE_PRIVATE_KEY:
+//            case CREATE_KEYSTORE_KEY:
+//            case IMPORT_HD_KEY:
+//            case CREATE_HD_KEY:
+//                //always unlock for these conditions
+//                dialogTitle = context.getString(R.string.provide_authentication);
+//                break;
+//            case FETCH_MNEMONIC:
+//            case CHECK_AUTHENTICATION:
+//            case SIGN_DATA:
+//            default:
+//                dialogTitle = context.getString(R.string.unlock_private_key);
+//                //unlock may be optional here
+//                if (!requireAuthentication && (currentWallet.authLevel == TEE_NO_AUTHENTICATION || currentWallet.authLevel == STRONGBOX_NO_AUTHENTICATION)
+//                        && !requiresUnlock() && signCallback != null)
+//                {
+//                    signCallback.gotAuthorisation(true);
+//                    return;
+//                }
+//                break;
+//        }
+
+        resetSigningDialog();
+
+        signDialog = new SignTransactionDialog(context);
+        signDialog.getAuthentication(authCallback, activity, operation);
+//        requireAuthentication = false;
+    }
+
     @Override
     public void completeAuthentication(Operation callbackId)
     {
@@ -1058,6 +1095,49 @@ public class KeyService implements AuthenticationCallback, PinAuthenticationCall
         }
     }
 
+    public void getCredentials(Wallet wallet, Activity activity, Function<Credentials, Void> callback) {
+        this.currentWallet = wallet;
+        this.activity = activity;
+        checkAuthentication(FETCH_MNEMONIC, new AuthenticationCallback() {
+            @RequiresApi(api = Build.VERSION_CODES.N)
+            @Override
+            public void authenticatePass(Operation callbackId) {
+                try {
+                    Credentials credentials = getCredentials();
+                    callback.apply(credentials);
+                } catch (Exception e) {
+                    Log.e("getCredentials", "Error when getting Credentials", e);
+                }
+            }
+
+            @Override
+            public void authenticateFail(String fail, AuthenticationFailType failType, Operation callbackId) {
+                KeyService.this.authenticateFail(fail, failType, callbackId);
+            }
+
+            @Override
+            public void legacyAuthRequired(Operation callbackId, String dialogTitle, String desc) {
+                KeyService.this.legacyAuthRequired(callbackId, dialogTitle, desc);
+            }
+        });
+    }
+
+    private Credentials getCredentials() throws Exception {
+        String password = "";
+        switch (currentWallet.type)
+        {
+            default:
+            case KEYSTORE:
+                password = unpackMnemonic();
+                break;
+            case KEYSTORE_LEGACY:
+                password = new String(getLegacyPassword(context, currentWallet.address));
+                break;
+        }
+        File keyFolder = new File(context.getFilesDir(), KEYSTORE_FOLDER);
+        return KeystoreAccountService.getCredentials(keyFolder, currentWallet.address, password);
+    }
+
     private synchronized SignatureFromKey signWithKeystore(byte[] transactionBytes)
     {
         //1. get password from store
@@ -1069,20 +1149,7 @@ public class KeyService implements AuthenticationCallback, PinAuthenticationCall
 
         try
         {
-            String password = "";
-            switch (currentWallet.type)
-            {
-                default:
-                case KEYSTORE:
-                    password = unpackMnemonic();
-                    break;
-                case KEYSTORE_LEGACY:
-                    password = new String(getLegacyPassword(context, currentWallet.address));
-                    break;
-            }
-
-            File keyFolder = new File(context.getFilesDir(), KEYSTORE_FOLDER);
-            Credentials credentials = KeystoreAccountService.getCredentials(keyFolder, currentWallet.address, password);
+            Credentials credentials = getCredentials();
             Sign.SignatureData signatureData = Sign.signMessage(
                     transactionBytes, credentials.getEcKeyPair());
             returnSig.signature = KeystoreAccountService.bytesFromSignature(signatureData);

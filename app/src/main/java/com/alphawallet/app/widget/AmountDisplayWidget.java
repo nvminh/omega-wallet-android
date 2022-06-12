@@ -36,6 +36,7 @@ import io.realm.Realm;
 public class AmountDisplayWidget extends LinearLayout {
 
     private final Locale deviceSettingsLocale = LocaleUtils.getDeviceLocale(getContext());
+    private final TextView labelAmount;
     private final TextView amount;
     private final RecyclerView tokensList;
 
@@ -45,7 +46,12 @@ public class AmountDisplayWidget extends LinearLayout {
 
         inflate(context, R.layout.item_amount_display, this);
         amount = findViewById(R.id.text_amount);
+        labelAmount = findViewById(R.id.label_amount);
         tokensList = findViewById(R.id.tokens_list);
+    }
+
+    public void setLabelAmount(String label) {
+        labelAmount.setText(label);
     }
 
     public void setAmountFromString(String displayStr)

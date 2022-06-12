@@ -41,20 +41,15 @@ import com.alphawallet.app.service.GasService;
 import com.alphawallet.app.ui.BaseActivity;
 import com.alphawallet.app.ui.QRScanning.QRScanner;
 import com.alphawallet.app.ui.WalletConnectActivity;
-import com.alphawallet.app.ui.widget.adapter.TokensAdapter;
 import com.alphawallet.app.ui.widget.entity.ActionSheetCallback;
-import com.alphawallet.app.ui.widget.entity.AddressReadyCallback;
 import com.alphawallet.app.ui.widget.entity.AmountReadyCallback;
 import com.alphawallet.app.util.KeyboardUtils;
 import com.alphawallet.app.util.QRParser;
 import com.alphawallet.app.util.Utils;
-import com.alphawallet.app.viewmodel.SendViewModel;
 import com.alphawallet.app.web3.entity.Address;
 import com.alphawallet.app.web3.entity.Web3Transaction;
 import com.alphawallet.app.widget.AWalletAlertDialog;
-import com.alphawallet.app.widget.ActionSheetDialog;
 import com.alphawallet.app.widget.FunctionButtonBar;
-import com.alphawallet.app.widget.InputAddress;
 import com.alphawallet.app.widget.InputAmount;
 import com.alphawallet.app.widget.SignTransactionDialog;
 import com.alphawallet.token.entity.SalesOrderMalformed;
@@ -616,8 +611,7 @@ public class SwapActivity extends BaseActivity implements AmountReadyCallback, S
         else
         {
             if (dialog != null && dialog.isShowing()) dialog.dismiss();
-            confirmationDialog = new SwapActionSheetDialog(this, w3tx, token, tokenViewAdapter.getSelectedToken(), SWAP_ADDRESS,
-                    resolvedAddress, viewModel.getTokenService(), this);
+            confirmationDialog = new SwapActionSheetDialog(this, w3tx, wallet, token, tokenViewAdapter.getSelectedToken(), viewModel.getTokenService(), viewModel.getSwapService(), viewModel.getKeyService(), this);
             confirmationDialog.setCanceledOnTouchOutside(false);
             confirmationDialog.show();
             sendAmount = NEGATIVE;

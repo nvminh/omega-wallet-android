@@ -6,6 +6,7 @@ import android.app.Activity;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.text.TextUtils;
+import android.util.Log;
 import android.view.View;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
@@ -22,11 +23,13 @@ import com.alphawallet.app.entity.SignAuthenticationCallback;
 import com.alphawallet.app.entity.StandardFunctionInterface;
 import com.alphawallet.app.entity.TXSpeed;
 import com.alphawallet.app.entity.Transaction;
+import com.alphawallet.app.entity.Wallet;
 import com.alphawallet.app.entity.nftassets.NFTAsset;
 import com.alphawallet.app.entity.tokens.Token;
 import com.alphawallet.app.repository.SharedPreferenceRepository;
 import com.alphawallet.app.repository.entity.Realm1559Gas;
 import com.alphawallet.app.repository.entity.RealmTransaction;
+import com.alphawallet.app.service.KeyService;
 import com.alphawallet.app.service.TokensService;
 import com.alphawallet.app.ui.HomeActivity;
 import com.alphawallet.app.ui.TransactionSuccessActivity;
@@ -47,15 +50,18 @@ import com.alphawallet.app.widget.GasWidget;
 import com.alphawallet.app.widget.GasWidget2;
 import com.alphawallet.app.widget.NetworkDisplayWidget;
 import com.alphawallet.app.widget.SignDataWidget;
-import com.alphawallet.app.widget.TokenIcon;
 import com.alphawallet.app.widget.TransactionDetailWidget;
 import com.alphawallet.app.widget.WalletConnectRequestWidget;
 import com.google.android.material.bottomsheet.BottomSheetBehavior;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
+import com.omegawallet.app.service.SwapService;
+
+import org.web3j.protocol.core.RemoteFunctionCall;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -66,6 +72,8 @@ import io.realm.Realm;
  */
 public class SwapActionSheetDialog extends BottomSheetDialog implements StandardFunctionInterface, ActionSheetInterface
 {
+    public static final String WETH_ADDRESS = "0xc778417E063141139Fce010982780140Aa0cD5Ab";
+
     private final ImageView cancelButton;
     private final GasWidget2 gasWidget;
     private final GasWidget gasWidgetLegacy;
@@ -87,9 +95,12 @@ public class SwapActionSheetDialog extends BottomSheetDialog implements Standard
     private final Token fromToken;
     private final Token toToken;
     private final TokensService tokensService;
+    private final KeyService keyService;
+    private final SwapService swapService;
 
     private final Web3Transaction candidateTransaction;
     private final ActionSheetCallback actionSheetCallback;
+    private final Wallet wallet;
     private SignAuthenticationCallback signCallback;
     private ActionSheetMode mode;
     private final long callbackId;
@@ -99,8 +110,8 @@ public class SwapActionSheetDialog extends BottomSheetDialog implements Standard
     private boolean use1559Transactions = false;
     private Transaction transaction;
 
-    public SwapActionSheetDialog(@NonNull Activity activity, Web3Transaction tx, Token fromToken, Token toToken,
-                                 String destName, String destAddress, TokensService ts,
+    public SwapActionSheetDialog(@NonNull Activity activity, Web3Transaction tx, Wallet wallet, Token fromToken, Token toToken,
+                                 TokensService ts, SwapService swapService, KeyService keyService,
                                  ActionSheetCallback aCallBack)
     {
         super(activity);
@@ -111,6 +122,10 @@ public class SwapActionSheetDialog extends BottomSheetDialog implements Standard
         behavior.setState(STATE_EXPANDED);
         behavior.setSkipCollapsed(true);
 
+        this.swapService = swapService;
+        this.keyService = keyService;
+        this.wallet = wallet;
+
         gasWidget = findViewById(R.id.gas_widgetx);
         gasWidgetLegacy = findViewById(R.id.gas_widget_legacy);
         balanceDisplay = findViewById(R.id.balance);
@@ -120,7 +135,9 @@ public class SwapActionSheetDialog extends BottomSheetDialog implements Standard
         detailWidget = findViewById(R.id.detail_widget);
 //        toTokenIcon = findViewById(R.id.recipient);
         amountDisplay = findViewById(R.id.amount_display);
+        amountDisplay.setLabelAmount("From");
         toAmountDisplay = findViewById(R.id.to_amount_display);
+        toAmountDisplay.setLabelAmount("To");
         assetDetailView = findViewById(R.id.asset_detail);
         functionBar = findViewById(R.id.layoutButtons);
         this.activity = activity;
@@ -836,6 +853,28 @@ public class SwapActionSheetDialog extends BottomSheetDialog implements Standard
         BigInteger networkFee = gasWidgetInterface.getGasPrice(candidateTransaction.gasPrice).multiply(gasWidgetInterface.getGasLimit());
         BigInteger balanceAfterTransaction = fromToken.balance.toBigInteger().subtract(gasWidgetInterface.getValue());
         balanceDisplay.setNewBalanceText(fromToken, getTransactionAmount(), networkFee, balanceAfterTransaction);
+
+        toAmountDisplay.setAmountFromString(toToken.tokenInfo.symbol);
+        //toAmountDisplay.setAmountUsingToken(BigInteger.valueOf(10), toToken, tokensService);
+        keyService.getCredentials(wallet, activity, credentials -> {
+            try {
+                RemoteFunctionCall<List> call = swapService.getAmountsOut(candidateTransaction.value, Arrays.asList(getAddress(fromToken), getAddress(toToken)), fromToken.getTokenInfo().chainId, credentials);
+                List list = call.sendAsync().get();
+                toAmountDisplay.setAmountFromBigInteger((BigInteger) list.get(1), toToken.tokenInfo.symbol);
+            } catch (Exception ex) {
+                Log.e("showAmount", "Error", ex);
+            }
+            return null;
+        });
+
+
+    }
+
+    private String getAddress(Token token) {
+        if("ETH".equalsIgnoreCase(token.tokenInfo.symbol)) {
+            return WETH_ADDRESS;
+        }
+        return token.tokenInfo.address;
     }
 
     private boolean isAttached;
