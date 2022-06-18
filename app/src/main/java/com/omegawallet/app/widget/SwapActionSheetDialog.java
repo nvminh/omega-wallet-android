@@ -3,42 +3,25 @@ package com.omegawallet.app.widget;
 import static com.google.android.material.bottomsheet.BottomSheetBehavior.STATE_EXPANDED;
 
 import android.app.Activity;
-import android.content.Intent;
-import android.content.SharedPreferences;
-import android.text.TextUtils;
 import android.util.Log;
 import android.view.View;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 
-import androidx.activity.result.ActivityResult;
 import androidx.annotation.NonNull;
-import androidx.preference.PreferenceManager;
 
-import com.alphawallet.app.C;
 import com.alphawallet.app.R;
 import com.alphawallet.app.entity.ActionSheetInterface;
-import com.alphawallet.app.entity.ContractType;
 import com.alphawallet.app.entity.SignAuthenticationCallback;
 import com.alphawallet.app.entity.StandardFunctionInterface;
-import com.alphawallet.app.entity.TXSpeed;
-import com.alphawallet.app.entity.Transaction;
 import com.alphawallet.app.entity.Wallet;
-import com.alphawallet.app.entity.nftassets.NFTAsset;
 import com.alphawallet.app.entity.tokens.Token;
-import com.alphawallet.app.repository.SharedPreferenceRepository;
-import com.alphawallet.app.repository.entity.Realm1559Gas;
-import com.alphawallet.app.repository.entity.RealmTransaction;
 import com.alphawallet.app.service.KeyService;
 import com.alphawallet.app.service.TokensService;
 import com.alphawallet.app.ui.HomeActivity;
-import com.alphawallet.app.ui.TransactionSuccessActivity;
 import com.alphawallet.app.ui.WalletConnectActivity;
 import com.alphawallet.app.ui.widget.entity.ActionSheetCallback;
-import com.alphawallet.app.ui.widget.entity.GasWidgetInterface;
 import com.alphawallet.app.util.Utils;
-import com.alphawallet.app.web3.entity.Web3Transaction;
-import com.alphawallet.app.widget.AWalletAlertDialog;
 import com.alphawallet.app.widget.ActionSheetMode;
 import com.alphawallet.app.widget.AddressDetailView;
 import com.alphawallet.app.widget.AmountDisplayWidget;
@@ -46,11 +29,8 @@ import com.alphawallet.app.widget.AssetDetailView;
 import com.alphawallet.app.widget.BalanceDisplayWidget;
 import com.alphawallet.app.widget.ConfirmationWidget;
 import com.alphawallet.app.widget.FunctionButtonBar;
-import com.alphawallet.app.widget.GasWidget;
-import com.alphawallet.app.widget.GasWidget2;
 import com.alphawallet.app.widget.NetworkDisplayWidget;
 import com.alphawallet.app.widget.SignDataWidget;
-import com.alphawallet.app.widget.TransactionDetailWidget;
 import com.alphawallet.app.widget.WalletConnectRequestWidget;
 import com.google.android.material.bottomsheet.BottomSheetBehavior;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
@@ -65,8 +45,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
-import io.realm.Realm;
-
 /**
  * Created by JB on 17/11/2020.
  */
@@ -75,22 +53,17 @@ public class SwapActionSheetDialog extends BottomSheetDialog implements Standard
     public static final String WETH_ADDRESS = "0xc778417E063141139Fce010982780140Aa0cD5Ab";
 
     private final ImageView cancelButton;
-    private final GasWidget2 gasWidget;
-    private final GasWidget gasWidgetLegacy;
     private final BalanceDisplayWidget balanceDisplay;
     private final NetworkDisplayWidget networkDisplay;
     private final ConfirmationWidget confirmationWidget;
-//    private final TokenIcon toTokenIcon;
     private final AmountDisplayWidget amountDisplay;
 
     private final AmountDisplayWidget toAmountDisplay;
 
     private final AssetDetailView assetDetailView;
     private final FunctionButtonBar functionBar;
-    private final TransactionDetailWidget detailWidget;
     private final WalletConnectRequestWidget walletConnectRequestWidget;
     private final Activity activity;
-    private final GasWidgetInterface gasWidgetInterface;
 
     private final Token fromToken;
     private final Token toToken;
@@ -98,19 +71,18 @@ public class SwapActionSheetDialog extends BottomSheetDialog implements Standard
     private final KeyService keyService;
     private final SwapService swapService;
 
-    private final Web3Transaction candidateTransaction;
     private final ActionSheetCallback actionSheetCallback;
     private final Wallet wallet;
     private SignAuthenticationCallback signCallback;
     private ActionSheetMode mode;
-    private final long callbackId;
+//    private final long callbackId;
 
     private String txHash = null;
     private boolean actionCompleted;
     private boolean use1559Transactions = false;
-    private Transaction transaction;
+    private final BigInteger sendAmount;
 
-    public SwapActionSheetDialog(@NonNull Activity activity, Web3Transaction tx, Wallet wallet, Token fromToken, Token toToken,
+    public SwapActionSheetDialog(@NonNull Activity activity, BigInteger sendAmount, Wallet wallet, Token fromToken, Token toToken,
                                  TokensService ts, SwapService swapService, KeyService keyService,
                                  ActionSheetCallback aCallBack)
     {
@@ -125,15 +97,13 @@ public class SwapActionSheetDialog extends BottomSheetDialog implements Standard
         this.swapService = swapService;
         this.keyService = keyService;
         this.wallet = wallet;
+        this.sendAmount = sendAmount;
 
-        gasWidget = findViewById(R.id.gas_widgetx);
-        gasWidgetLegacy = findViewById(R.id.gas_widget_legacy);
         balanceDisplay = findViewById(R.id.balance);
         networkDisplay = findViewById(R.id.network_display_widget);
         cancelButton = findViewById(R.id.image_close);
         confirmationWidget = findViewById(R.id.confirmation_view);
-        detailWidget = findViewById(R.id.detail_widget);
-//        toTokenIcon = findViewById(R.id.recipient);
+
         amountDisplay = findViewById(R.id.amount_display);
         amountDisplay.setLabelAmount("From");
         toAmountDisplay = findViewById(R.id.to_amount_display);
@@ -163,268 +133,22 @@ public class SwapActionSheetDialog extends BottomSheetDialog implements Standard
         this.fromToken = fromToken;
         this.toToken = toToken;
         tokensService = ts;
-        candidateTransaction = tx;
-        callbackId = tx.leafPosition;
 
-        transaction = new Transaction(tx, fromToken.tokenInfo.chainId, ts.getCurrentAddress());
-        transaction.transactionInput = Transaction.decoder.decodeInput(candidateTransaction, fromToken.tokenInfo.chainId, fromToken.getWallet());
-
-        balanceDisplay.setupBalance(fromToken, tokensService, transaction);
+        balanceDisplay.setupBalance(fromToken, tokensService, null);
         networkDisplay.setNetwork(fromToken.tokenInfo.chainId);
 
         functionBar.setupFunctions(this, new ArrayList<>(Collections.singletonList(R.string.action_confirm)));
         functionBar.revealButtons();
 
-        gasWidgetInterface = setupGasWidget();
-
-        if (!tx.gasLimit.equals(BigInteger.ZERO))
-        {
-            setGasEstimate(tx.gasLimit);
-        }
-
         updateAmount();
-
-//        toTokenIcon.bindData(toToken);
-
-        if (fromToken.isNonFungible())
-        {
-            balanceDisplay.setVisibility(View.GONE);
-
-            if (fromToken.getInterfaceSpec() == ContractType.ERC1155)
-            {
-                List<NFTAsset> assetList = fromToken.getAssetListFromTransaction(transaction);
-                amountDisplay.setVisibility(View.VISIBLE);
-                amountDisplay.setAmountFromAssetList(assetList);
-
-                toAmountDisplay.setVisibility(View.VISIBLE);
-//                amountDisplay.setAmountFromAssetList(assetList);
-                setupTransactionDetails();
-            }
-            else
-            {
-                amountDisplay.setVisibility(View.GONE);
-                assetDetailView.setupAssetDetail(fromToken, getERC721TokenId(), this);
-                assetDetailView.setVisibility(View.VISIBLE);
-            }
-        }
 
         setupCancelListeners();
         isAttached = true;
     }
 
-    private GasWidgetInterface setupGasWidget()
-    {
-        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(getContext());
-        boolean canUse1559Transactions = prefs.getBoolean(SharedPreferenceRepository.EXPERIMENTAL_1559_TX, false);
-
-        use1559Transactions = canUse1559Transactions && has1559Gas() //1559 Transactions toggled on in settings and this chain supports 1559
-                && !(fromToken.isEthereum() && candidateTransaction.leafPosition == -2) //User not sweeping wallet (if so we need to use legacy tx)
-                && !tokensService.hasLockedGas(fromToken.tokenInfo.chainId) //Service has locked gas, can only use legacy (eg Optimism).
-                && !candidateTransaction.isConstructor(); //Currently cannot use EIP1559 for constructors due to gas calculation issues
-
-        if (use1559Transactions)
-        {
-            gasWidget.setupWidget(tokensService, fromToken, candidateTransaction, actionSheetCallback.gasSelectLauncher());
-            return gasWidget;
-        }
-        else
-        {
-            gasWidget.setVisibility(View.GONE);
-            gasWidgetLegacy.setVisibility(View.VISIBLE);
-            gasWidgetLegacy.setupWidget(tokensService, fromToken, candidateTransaction, this, actionSheetCallback.gasSelectLauncher());
-            return gasWidgetLegacy;
-        }
-    }
-
-//    public SwapActionSheetDialog(@NonNull Activity activity, ActionSheetCallback aCallback, SignAuthenticationCallback sCallback, Signable message)
-//    {
-//        super(activity);
-//        setContentView(R.layout.dialog_action_sheet_sign);
-//
-//        gasWidget = findViewById(R.id.gas_widgetx);
-//        gasWidgetLegacy = findViewById(R.id.gas_widget_legacy);
-//        balanceDisplay = findViewById(R.id.balance);
-//        networkDisplay = findViewById(R.id.network_display_widget);
-//        cancelButton = findViewById(R.id.image_close);
-//        confirmationWidget = findViewById(R.id.confirmation_view);
-//        addressDetail = findViewById(R.id.requester);
-//        amountDisplay = findViewById(R.id.amount_display);
-//        assetDetailView = findViewById(R.id.asset_detail);
-//        functionBar = findViewById(R.id.layoutButtons);
-//        detailWidget = null;
-//        mode = ActionSheetMode.SIGN_MESSAGE;
-//        callbackId = message.getCallbackId();
-//        this.activity = activity;
-//
-//        actionSheetCallback = aCallback;
-//        signCallback = sCallback;
-//
-//        fromToken = null;
-//        toToken = null;
-//        tokensService = null;
-//        candidateTransaction = null;
-//        actionCompleted = false;
-//        walletConnectRequestWidget = null;
-//        gasWidgetInterface = null;
-//
-//        addressDetail.setupRequester(message.getOrigin());
-//        SignDataWidget signWidget = findViewById(R.id.sign_widget);
-//        signWidget.setupSignData(message);
-//        signWidget.setLockCallback(this);
-//
-//        TextView signTitle = findViewById(R.id.text_sign_title);
-//        signTitle.setText(Utils.getSigningTitle(message));
-//
-//        functionBar.setupFunctions(this, new ArrayList<>(Collections.singletonList(R.string.action_confirm)));
-//        functionBar.revealButtons();
-//        setupCancelListeners();
-//        isAttached = true;
-//    }
-
-//    public SwapActionSheetDialog(@NonNull Activity activity, ActionSheetCallback aCallback, int titleId, String message, int buttonTextId,
-//                                 long cId, Token baseToken)
-//    {
-//        super(activity);
-//        setContentView(R.layout.dialog_action_sheet_message);
-//
-//        TextView titleView = findViewById(R.id.text_sign_title);
-//        TextView messageView = findViewById(R.id.text_message);
-//        functionBar = findViewById(R.id.layoutButtons);
-//        this.activity = activity;
-//
-//        actionSheetCallback = aCallback;
-//        mode = ActionSheetMode.MESSAGE;
-//
-//        titleView.setText(titleId);
-//        messageView.setText(message);
-//
-//        gasWidget = null;
-//        balanceDisplay = null;
-//        networkDisplay = null;
-//        cancelButton = findViewById(R.id.image_close);
-//        confirmationWidget = null;
-//        addressDetail = null;
-//        amountDisplay = null;
-//        assetDetailView = null;
-//        detailWidget = null;
-//        callbackId = cId;
-//        fromToken = baseToken;
-//        tokensService = null;
-//        candidateTransaction = null;
-//        walletConnectRequestWidget = null;
-//        gasWidgetLegacy = null;
-//        gasWidgetInterface = null;
-//
-//        functionBar.setupFunctions(this, new ArrayList<>(Collections.singletonList(buttonTextId)));
-//        functionBar.revealButtons();
-//        setupCancelListeners();
-//        isAttached = true;
-//    }
-
-//    // wallet connect request
-//    public SwapActionSheetDialog(Activity activity, WCPeerMeta wcPeerMeta, long chainIdOverride, String iconUrl, ActionSheetCallback actionSheetCallback)
-//    {
-//        super(activity);
-//        setContentView(R.layout.dialog_wallet_connect_sheet);
-//        mode = ActionSheetMode.WALLET_CONNECT_REQUEST;
-//
-//        ImageView logo = findViewById(R.id.image_logo);
-//        cancelButton = findViewById(R.id.image_close);
-//        functionBar = findViewById(R.id.layoutButtons);
-//
-//
-//        this.activity = activity;
-//        this.actionSheetCallback = actionSheetCallback;
-//
-//        walletConnectRequestWidget = findViewById(R.id.wallet_connect_widget);
-//        gasWidget = null;
-//        balanceDisplay = null;
-//        networkDisplay = null;
-//        confirmationWidget = null;
-//        addressDetail = null;
-//        amountDisplay = null;
-//        assetDetailView = null;
-//        detailWidget = null;
-//        fromToken = null;
-//        tokensService = null;
-//        candidateTransaction = null;
-//        callbackId = 0;
-//        isAttached = true;
-//        gasWidgetLegacy = null;
-//        gasWidgetInterface = null;
-//
-//        Glide.with(activity)
-//                .load(iconUrl)
-//                .circleCrop()
-//                .into(logo);
-//
-//        TextView title = findViewById(R.id.text_title);
-//        title.setText(wcPeerMeta.getName());
-//
-//        cancelButton.setOnClickListener(v -> {
-//            actionSheetCallback.denyWalletConnect();
-//        });
-//
-//        walletConnectRequestWidget.setupWidget(wcPeerMeta, chainIdOverride, actionSheetCallback::openChainSelection);
-//
-//        ArrayList<Integer> functionList = new ArrayList<>();
-//        functionList.add(R.string.approve);
-//        functionList.add(R.string.dialog_reject);
-//        functionBar.setupFunctions(this, functionList);
-//        functionBar.revealButtons();
-//    }
-//
-//    // switch chain
-//    public SwapActionSheetDialog(Activity activity, ActionSheetCallback aCallback, int titleId, int buttonTextId,
-//                                 long cId, Token baseToken, NetworkInfo oldNetwork, NetworkInfo newNetwork)
-//    {
-//        super(activity);
-//        setContentView(R.layout.dialog_action_sheet_switch_chain);
-//
-//        TextView titleView = findViewById(R.id.text_sign_title);
-//        SwitchChainWidget switchChainWidget = findViewById(R.id.switch_chain_widget);
-//        switchChainWidget.setupSwitchChainData(oldNetwork, newNetwork);
-//
-//        functionBar = findViewById(R.id.layoutButtons);
-//        this.activity = activity;
-//
-//        actionSheetCallback = aCallback;
-//        mode = ActionSheetMode.MESSAGE;
-//
-//        titleView.setText(titleId);
-//
-//        gasWidget = null;
-//        balanceDisplay = null;
-//        networkDisplay = null;
-//        cancelButton = findViewById(R.id.image_close);
-//        confirmationWidget = null;
-//        addressDetail = null;
-//        amountDisplay = null;
-//        assetDetailView = null;
-//        detailWidget = null;
-//        callbackId = cId;
-//        fromToken = baseToken;
-//        tokensService = null;
-//        candidateTransaction = null;
-//        walletConnectRequestWidget = null;
-//        gasWidgetLegacy = null;
-//        gasWidgetInterface = null;
-//
-//        functionBar.setupFunctions(this, new ArrayList<>(Collections.singletonList(buttonTextId)));
-//        functionBar.revealButtons();
-//        setupCancelListeners();
-//        isAttached = true;
-//    }
-
-    public void setSignOnly()
-    {
-        //sign only, and return signature to process
-        mode = ActionSheetMode.SIGN_TRANSACTION;
-    }
 
     public void onDestroy()
     {
-        if (gasWidgetInterface != null) gasWidgetInterface.onDestroy();
         if (assetDetailView != null) assetDetailView.onDestroy();
     }
 
@@ -432,59 +156,9 @@ public class SwapActionSheetDialog extends BottomSheetDialog implements Standard
     {
         AddressDetailView requester = findViewById(R.id.requester);
         requester.setupRequester(url);
-        detailWidget.setupTransaction(candidateTransaction, fromToken.tokenInfo.chainId, tokensService.getCurrentAddress(),
-                tokensService.getNetworkSymbol(fromToken.tokenInfo.chainId), this);
-//        if (candidateTransaction.isConstructor())
-//        {
-//            toTokenIcon.setVisibility(View.GONE);
-//        }
 
-        if (candidateTransaction.value.equals(BigInteger.ZERO))
-        {
-            amountDisplay.setVisibility(View.GONE);
-        }
-        else
-        {
-            amountDisplay.setVisibility(View.VISIBLE);
-            amountDisplay.setAmountUsingToken(candidateTransaction.value, tokensService.getServiceToken(fromToken.tokenInfo.chainId), tokensService);
-        }
-    }
-
-    private void setupTransactionDetails()
-    {
-        detailWidget.setupTransaction(candidateTransaction, fromToken.tokenInfo.chainId, tokensService.getCurrentAddress(),
-                tokensService.getNetworkSymbol(fromToken.tokenInfo.chainId), this);
-        detailWidget.setVisibility(View.VISIBLE);
-    }
-
-    public void setCurrentGasIndex(ActivityResult result)
-    {
-        if (result == null || result.getData() == null) return;
-        int gasSelectionIndex = result.getData().getIntExtra(C.EXTRA_SINGLE_ITEM, TXSpeed.STANDARD.ordinal());
-        long customNonce = result.getData().getLongExtra(C.EXTRA_NONCE, -1);
-        BigInteger maxFeePerGas = result.getData().hasExtra(C.EXTRA_GAS_PRICE) ?
-                new BigInteger(result.getData().getStringExtra(C.EXTRA_GAS_PRICE)) : BigInteger.ZERO;
-        BigInteger maxPriorityFee = result.getData().hasExtra(C.EXTRA_MIN_GAS_PRICE) ?
-                new BigInteger(result.getData().getStringExtra(C.EXTRA_MIN_GAS_PRICE)) : BigInteger.ZERO;
-        BigDecimal customGasLimit = new BigDecimal(result.getData().getStringExtra(C.EXTRA_GAS_LIMIT));
-        long expectedTxTime = result.getData().getLongExtra(C.EXTRA_AMOUNT, 0);
-        gasWidgetInterface.setCurrentGasIndex(gasSelectionIndex, maxFeePerGas, maxPriorityFee, customGasLimit, expectedTxTime, customNonce);
-    }
-
-    private boolean isSendingTransaction()
-    {
-        return (mode != ActionSheetMode.SIGN_MESSAGE && mode != ActionSheetMode.SIGN_TRANSACTION);
-    }
-
-    public void setupResendTransaction(ActionSheetMode callingMode)
-    {
-        mode = callingMode;
-        gasWidgetInterface.setupResendSettings(mode, candidateTransaction.gasPrice);
-        balanceDisplay.setVisibility(View.GONE);
-        networkDisplay.setVisibility(View.GONE);
-//        toTokenIcon.setVisibility(View.GONE);
-        detailWidget.setVisibility(View.GONE);
-        amountDisplay.setVisibility(View.GONE);
+        amountDisplay.setVisibility(View.VISIBLE);
+        amountDisplay.setAmountUsingToken(sendAmount, tokensService.getServiceToken(fromToken.tokenInfo.chainId), tokensService);
     }
 
     @Override
@@ -504,14 +178,15 @@ public class SwapActionSheetDialog extends BottomSheetDialog implements Standard
             case SPEEDUP_TRANSACTION:
             case CANCEL_TRANSACTION:
                 //check gas and warn user
-                if (!gasWidgetInterface.checkSufficientGas())
-                {
-                    askUserForInsufficientGasConfirm();
-                }
-                else
-                {
-                    sendTransaction();
-                }
+//                if (!gasWidgetInterface.checkSufficientGas())
+//                {
+//                    askUserForInsufficientGasConfirm();
+//                }
+//                else
+//                {
+//                    sendTransaction();
+//                }
+                sendTransaction();
                 break;
             case SIGN_MESSAGE:
                 signMessage();
@@ -520,7 +195,7 @@ public class SwapActionSheetDialog extends BottomSheetDialog implements Standard
                 signTransaction();
                 break;
             case MESSAGE:
-                actionSheetCallback.buttonClick(callbackId, fromToken);
+                actionSheetCallback.buttonClick(0, fromToken);
                 break;
             case WALLET_CONNECT_REQUEST:
                 if (id == R.string.approve)
@@ -540,27 +215,8 @@ public class SwapActionSheetDialog extends BottomSheetDialog implements Standard
 
     private BigDecimal getTransactionAmount()
     {
-        BigDecimal txAmount;
-        if (fromToken.isEthereum())
-        {
-            txAmount = new BigDecimal(gasWidgetInterface.getValue());
-        }
-        else if (isSendingTransaction())
-        {
-            txAmount = new BigDecimal(fromToken.getTransferValueRaw(transaction.transactionInput));
-        }
-        else
-        {
-            txAmount = BigDecimal.ZERO;
-        }
 
-        return txAmount;
-    }
-
-    private String getERC721TokenId()
-    {
-        if (!fromToken.isERC721()) return "";
-        return fromToken.getTransferValueRaw(transaction.transactionInput).toString();
+        return new BigDecimal(sendAmount);
     }
 
     private void signMessage()
@@ -600,89 +256,9 @@ public class SwapActionSheetDialog extends BottomSheetDialog implements Standard
         actionSheetCallback.getAuthorisation(localSignCallback);
     }
 
-    /**
-     * Popup a dialogbox to ask user if they really want to try to send this transaction,
-     * as we calculate it will fail due to insufficient gas. User knows best though.
-     */
-    private void askUserForInsufficientGasConfirm()
-    {
-        AWalletAlertDialog dialog = new AWalletAlertDialog(getContext());
-        dialog.setIcon(AWalletAlertDialog.WARNING);
-        dialog.setTitle(R.string.insufficient_gas);
-        dialog.setMessage(getContext().getString(R.string.not_enough_gas_message));
-        dialog.setButtonText(R.string.action_send);
-        dialog.setSecondaryButtonText(R.string.cancel_transaction);
-        dialog.setButtonListener(v -> {
-            dialog.dismiss();
-            sendTransaction();
-        });
-        dialog.setSecondaryButtonListener(v -> {
-            dialog.dismiss();
-        });
-        dialog.show();
-    }
-
-    public void transactionWritten(String tx)
-    {
-        txHash = tx;
-        //dismiss on message completion
-        confirmationWidget.completeProgressMessage(txHash, this::showTransactionSuccess);
-        if (!TextUtils.isEmpty(tx) && tx.startsWith("0x"))
-        {
-            updateRealmTransactionFinishEstimate(tx);
-        }
-    }
-
-    private void showTransactionSuccess()
-    {
-        switch (mode)
-        {
-            case SEND_TRANSACTION:
-                //Display transaction success dialog
-                Intent intent = new Intent(getContext(), TransactionSuccessActivity.class);
-                intent.putExtra(C.EXTRA_TXHASH, txHash);
-                intent.setFlags(Intent.FLAG_ACTIVITY_MULTIPLE_TASK);
-                activity.startActivityForResult(intent, C.COMPLETED_TRANSACTION);
-                tryDismiss();
-                break;
-
-            case SEND_TRANSACTION_WC:
-            case SEND_TRANSACTION_DAPP:
-            case SPEEDUP_TRANSACTION:
-            case CANCEL_TRANSACTION:
-            case SIGN_TRANSACTION:
-                //return to dapp
-                tryDismiss();
-                break;
-        }
-    }
-
     private void tryDismiss()
     {
         if (Utils.stillAvailable(activity) && isAttached && isShowing()) dismiss();
-    }
-
-    private void updateRealmTransactionFinishEstimate(String txHash)
-    {
-        final long expectedTime = System.currentTimeMillis() + gasWidgetInterface.getExpectedTransactionTime() * 1000;
-        try (Realm realm = tokensService.getWalletRealmInstance())
-        {
-            realm.executeTransactionAsync(r -> {
-                RealmTransaction rt = r.where(RealmTransaction.class)
-                        .equalTo("hash", txHash)
-                        .findFirst();
-
-                if (rt != null)
-                {
-                    rt.setExpectedCompletion(expectedTime);
-                    r.insertOrUpdate(rt);
-                }
-            });
-        }
-        catch (Exception e)
-        {
-            //
-        }
     }
 
     private void setupCancelListeners()
@@ -692,8 +268,7 @@ public class SwapActionSheetDialog extends BottomSheetDialog implements Standard
         });
 
         setOnDismissListener(v -> {
-            actionSheetCallback.dismissed(txHash, callbackId, actionCompleted);
-            if (gasWidgetInterface != null) gasWidgetInterface.onDestroy();
+            actionSheetCallback.dismissed(txHash, 0, actionCompleted);
         });
     }
 
@@ -711,7 +286,7 @@ public class SwapActionSheetDialog extends BottomSheetDialog implements Standard
                 actionCompleted = true;
                 confirmationWidget.startProgressCycle(4);
                 //send the transaction
-                actionSheetCallback.signTransaction(formTransaction());
+//                actionSheetCallback.signTransaction(formTransaction());
             }
 
             @Override
@@ -752,71 +327,10 @@ public class SwapActionSheetDialog extends BottomSheetDialog implements Standard
         }
     }
 
-    private Web3Transaction formTransaction()
-    {
-        //form Web3Transaction
-        if (!use1559Transactions)
-        {
-            BigInteger currentGasPrice = gasWidgetInterface.getGasPrice(candidateTransaction.gasPrice); // also recalculates the transaction value
-
-            return new Web3Transaction(
-                    candidateTransaction.recipient,
-                    candidateTransaction.contract,
-                    gasWidgetInterface.getValue(),
-                    currentGasPrice,
-                    gasWidgetInterface.getGasLimit(),
-                    gasWidgetInterface.getNonce(),
-                    candidateTransaction.payload,
-                    candidateTransaction.leafPosition
-            );
-        }
-        else
-        {
-            return new Web3Transaction(
-                    candidateTransaction.recipient,
-                    candidateTransaction.contract,
-                    gasWidgetInterface.getValue(),
-                    gasWidgetInterface.getGasMax(),
-                    gasWidgetInterface.getPriorityFee(),
-                    gasWidgetInterface.getGasLimit(),
-                    gasWidgetInterface.getNonce(),
-                    candidateTransaction.payload,
-                    candidateTransaction.leafPosition
-            );
-        }
-    }
-
     private void sendTransaction()
     {
         functionBar.setVisibility(View.GONE);
 
-        //get approval and push transaction
-        //authentication screen
-        signCallback = new SignAuthenticationCallback()
-        {
-            @Override
-            public void gotAuthorisation(boolean gotAuth)
-            {
-                actionCompleted = true;
-                if (!gotAuth)
-                {
-                    cancelAuthentication();
-                    return;
-                }
-                confirmationWidget.startProgressCycle(4);
-                //send the transaction
-                actionSheetCallback.sendTransaction(formTransaction());
-            }
-
-            @Override
-            public void cancelAuthentication()
-            {
-                confirmationWidget.hide();
-                functionBar.setVisibility(View.VISIBLE);
-            }
-        };
-
-        actionSheetCallback.getAuthorisation(signCallback);
     }
 
     @Override
@@ -839,28 +353,21 @@ public class SwapActionSheetDialog extends BottomSheetDialog implements Standard
         if (bottomSheet != null) BottomSheetBehavior.from(bottomSheet).setState(STATE_EXPANDED);
     }
 
-    //Takes gas estimate from calling activity (eg WalletConnectActivity) and updates dialog
-    public void setGasEstimate(BigInteger estimate)
-    {
-        gasWidgetInterface.setGasEstimate(estimate);
-        functionBar.setPrimaryButtonEnabled(true);
-    }
-
-    private void showAmount(BigInteger amountVal)
+    private void showAmount(final BigInteger amountVal)
     {
         amountDisplay.setAmountUsingToken(amountVal, fromToken, tokensService);
 
-        BigInteger networkFee = gasWidgetInterface.getGasPrice(candidateTransaction.gasPrice).multiply(gasWidgetInterface.getGasLimit());
-        BigInteger balanceAfterTransaction = fromToken.balance.toBigInteger().subtract(gasWidgetInterface.getValue());
-        balanceDisplay.setNewBalanceText(fromToken, getTransactionAmount(), networkFee, balanceAfterTransaction);
+//        BigInteger networkFee = gasWidgetInterface.getGasPrice(candidateTransaction.gasPrice).multiply(gasWidgetInterface.getGasLimit());
+        BigInteger balanceAfterTransaction = fromToken.balance.toBigInteger();//.subtract(gasWidgetInterface.getValue());
+        balanceDisplay.setNewBalanceText(fromToken, getTransactionAmount(), BigInteger.ZERO, balanceAfterTransaction);
 
         toAmountDisplay.setAmountFromString(toToken.tokenInfo.symbol);
         //toAmountDisplay.setAmountUsingToken(BigInteger.valueOf(10), toToken, tokensService);
         keyService.getCredentials(wallet, activity, credentials -> {
             try {
-                RemoteFunctionCall<List> call = swapService.getAmountsOut(candidateTransaction.value, Arrays.asList(getAddress(fromToken), getAddress(toToken)), fromToken.getTokenInfo().chainId, credentials);
+                RemoteFunctionCall<List> call = swapService.getAmountsOut(amountVal, Arrays.asList(getAddress(fromToken), getAddress(toToken)), fromToken.getTokenInfo().chainId, credentials);
                 List list = call.sendAsync().get();
-                toAmountDisplay.setAmountFromBigInteger((BigInteger) list.get(1), toToken.tokenInfo.symbol);
+                toAmountDisplay.setAmountUsingToken((BigInteger) list.get(1), toToken, tokensService);
             } catch (Exception ex) {
                 Log.e("showAmount", "Error", ex);
             }
@@ -879,10 +386,6 @@ public class SwapActionSheetDialog extends BottomSheetDialog implements Standard
 
     private boolean isAttached;
 
-    public void closingActionSheet()
-    {
-        isAttached = false;
-    }
 
     public void success()
     {
@@ -890,44 +393,5 @@ public class SwapActionSheetDialog extends BottomSheetDialog implements Standard
         {
             confirmationWidget.completeProgressMessage(".", this::dismiss);
         }
-    }
-
-    public void forceDismiss()
-    {
-        setOnDismissListener(v -> {
-            // Do nothing
-        });
-        dismiss();
-    }
-
-    public void waitForEstimate()
-    {
-        functionBar.setPrimaryButtonWaiting();
-    }
-
-    public void updateChain(long chainId)
-    {
-        walletConnectRequestWidget.updateChain(chainId);
-    }
-
-    private boolean has1559Gas()
-    {
-        try (Realm realm = tokensService.getTickerRealmInstance())
-        {
-            Realm1559Gas rgs = realm.where(Realm1559Gas.class)
-                    .equalTo("chainId", fromToken.tokenInfo.chainId)
-                    .findFirst();
-
-            if (rgs != null)
-            {
-                return true;
-            }
-        }
-        catch (Exception e)
-        {
-            //
-        }
-
-        return false;
     }
 }

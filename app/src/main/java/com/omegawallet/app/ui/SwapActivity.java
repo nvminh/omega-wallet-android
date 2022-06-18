@@ -16,7 +16,6 @@ import android.view.View;
 import android.widget.TextView;
 
 import androidx.activity.result.ActivityResultLauncher;
-import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.Nullable;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -31,13 +30,11 @@ import com.alphawallet.app.entity.Operation;
 import com.alphawallet.app.entity.QRResult;
 import com.alphawallet.app.entity.SignAuthenticationCallback;
 import com.alphawallet.app.entity.StandardFunctionInterface;
-import com.alphawallet.app.entity.TransactionData;
 import com.alphawallet.app.entity.Wallet;
 import com.alphawallet.app.entity.tokens.Token;
 import com.alphawallet.app.entity.tokens.TokenCardMeta;
 import com.alphawallet.app.repository.EthereumNetworkBase;
 import com.alphawallet.app.repository.EthereumNetworkRepository;
-import com.alphawallet.app.service.GasService;
 import com.alphawallet.app.ui.BaseActivity;
 import com.alphawallet.app.ui.QRScanning.QRScanner;
 import com.alphawallet.app.ui.WalletConnectActivity;
@@ -45,8 +42,6 @@ import com.alphawallet.app.ui.widget.entity.ActionSheetCallback;
 import com.alphawallet.app.ui.widget.entity.AmountReadyCallback;
 import com.alphawallet.app.util.KeyboardUtils;
 import com.alphawallet.app.util.QRParser;
-import com.alphawallet.app.util.Utils;
-import com.alphawallet.app.web3.entity.Address;
 import com.alphawallet.app.web3.entity.Web3Transaction;
 import com.alphawallet.app.widget.AWalletAlertDialog;
 import com.alphawallet.app.widget.FunctionButtonBar;
@@ -54,23 +49,18 @@ import com.alphawallet.app.widget.InputAmount;
 import com.alphawallet.app.widget.SignTransactionDialog;
 import com.alphawallet.token.entity.SalesOrderMalformed;
 import com.alphawallet.token.tools.Convert;
-import com.alphawallet.token.tools.Numeric;
 import com.alphawallet.token.tools.ParseMagicLink;
 import com.omegawallet.app.ui.widget.adapter.SwapTokensAdapter;
 import com.omegawallet.app.viewmodel.SwapViewModel;
 import com.omegawallet.app.widget.SwapActionSheetDialog;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.net.SocketTimeoutException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
 import dagger.hilt.android.AndroidEntryPoint;
-import io.reactivex.android.schedulers.AndroidSchedulers;
-import io.reactivex.disposables.Disposable;
-import io.reactivex.schedulers.Schedulers;
 import timber.log.Timber;
 
 @AndroidEntryPoint
@@ -89,18 +79,12 @@ public class SwapActivity extends BaseActivity implements AmountReadyCallback, S
     private QRResult currentResult;
 
     private InputAmount amountInput;
-//    private InputAddress addressInput;
-//    private String sendAddress = SWAP_ADDRESS;
-//    private String ensAddress = "";
     private BigDecimal sendAmount;
-    private BigDecimal sendGasPrice;
     private SwapActionSheetDialog confirmationDialog;
     private AWalletAlertDialog alertDialog;
     private SwapTokensAdapter tokenViewAdapter;
     private RecyclerView tokenView;
 
-    @Nullable
-    private Disposable calcGasCost;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState)
@@ -118,11 +102,8 @@ public class SwapActivity extends BaseActivity implements AmountReadyCallback, S
         token = viewModel.getToken(currentChain, getIntent().getStringExtra(C.EXTRA_ADDRESS));
         QRResult result = getIntent().getParcelableExtra(C.EXTRA_AMOUNT);
 
-        viewModel.transactionFinalised().observe(this, this::txWritten);
         viewModel.transactionError().observe(this, this::txError);
 
-//        sendAddress = null;
-        sendGasPrice = BigDecimal.ZERO;
         sendAmount = NEGATIVE;
 
         if (!checkTokenValidity(currentChain, contractAddress))
@@ -510,8 +491,6 @@ public class SwapActivity extends BaseActivity implements AmountReadyCallback, S
         if (handler != null) handler.removeCallbacksAndMessages(null);
         if (amountInput != null) amountInput.onDestroy();
         if (confirmationDialog != null) confirmationDialog.onDestroy();
-//        if (addressInput != null)
-//            addressInput.setEnsNodeNotSyncCallback(null); // prevent leak by removing reference to activity method
     }
 
     private void setupTokenContent()
@@ -533,17 +512,22 @@ public class SwapActivity extends BaseActivity implements AmountReadyCallback, S
                 || (token.getBalanceRaw().subtract(value).compareTo(BigDecimal.ZERO) >= 0)) // contract token, check sufficient token balance (gas widget will check sufficient gas)
         {
             sendAmount = value;
-            sendGasPrice = gasPrice;
-            calculateTransactionCost();
+            showConfirmDialog();
         }
         else
         {
             sendAmount = NEGATIVE;
             //insufficient balance
             amountInput.showError(true, 0);
-            //if currently resolving ENS, stop
-//            addressInput.stopNameCheck();
         }
+    }
+
+    private void showConfirmDialog() {
+        if (dialog != null && dialog.isShowing()) dialog.dismiss();
+        confirmationDialog = new SwapActionSheetDialog(this, sendAmount.toBigInteger(), wallet, token, tokenViewAdapter.getSelectedToken(), viewModel.getTokenService(), viewModel.getSwapService(), viewModel.getKeyService(), this);
+        confirmationDialog.setCanceledOnTouchOutside(false);
+        confirmationDialog.show();
+        sendAmount = NEGATIVE;
     }
 
     @Override
@@ -554,67 +538,6 @@ public class SwapActivity extends BaseActivity implements AmountReadyCallback, S
         {
             KeyboardUtils.hideKeyboard(getCurrentFocus());
             amountInput.getInputAmount();
-        }
-    }
-
-    private void calculateTransactionCost()
-    {
-        if ((calcGasCost != null && !calcGasCost.isDisposed()) ||
-                (confirmationDialog != null && confirmationDialog.isShowing())) return;
-
-        if (sendAmount.compareTo(NEGATIVE) > 0 && Utils.isAddressValid(SWAP_ADDRESS))
-        {
-            final String txSendAddress = SWAP_ADDRESS;
-//            sendAddress = null;
-            //either sending base chain or ERC20 tokens.
-            final byte[] transactionBytes = viewModel.getTransactionBytes(token, txSendAddress, sendAmount);
-
-            final String txDestAddress = token.isEthereum() ? txSendAddress : token.getAddress(); //either another address, or ERC20 Token address
-
-            calculateEstimateDialog();
-            //form payload and calculate tx cost
-            calcGasCost = viewModel.calculateGasEstimate(wallet, transactionBytes, token.tokenInfo.chainId, txDestAddress, BigDecimal.ZERO)
-                    .subscribeOn(Schedulers.io())
-                    .observeOn(AndroidSchedulers.mainThread())
-                    .subscribe(estimate -> checkConfirm(estimate, transactionBytes, txDestAddress, txSendAddress),
-                            error -> handleError(error, transactionBytes, token.getAddress(), txSendAddress));
-        }
-    }
-
-    private void handleError(Throwable throwable, final byte[] transactionBytes, final String txSendAddress, final String resolvedAddress)
-    {
-        Timber.w(throwable);
-        checkConfirm(BigInteger.ZERO, transactionBytes, txSendAddress, resolvedAddress);
-    }
-
-    /**
-     * Called to check if we're ready to send user to confirm screen / activity sheet popup
-     */
-    private void checkConfirm(final BigInteger sendGasLimit, final byte[] transactionBytes, final String txSendAddress, final String resolvedAddress)
-    {
-        BigInteger ethValue = token.isEthereum() ? sendAmount.toBigInteger() : BigInteger.ZERO;
-        long leafCode = amountInput.isSendAll() ? -2 : -1;
-        Web3Transaction w3tx = new Web3Transaction(
-                new Address(txSendAddress),
-                new Address(token.getAddress()),
-                ethValue,
-                sendGasPrice.toBigInteger(),
-                sendGasLimit,
-                -1,
-                Numeric.toHexString(transactionBytes),
-                leafCode);
-
-        if (sendGasLimit.equals(BigInteger.ZERO))
-        {
-            estimateError(w3tx, transactionBytes, txSendAddress, resolvedAddress);
-        }
-        else
-        {
-            if (dialog != null && dialog.isShowing()) dialog.dismiss();
-            confirmationDialog = new SwapActionSheetDialog(this, w3tx, wallet, token, tokenViewAdapter.getSelectedToken(), viewModel.getTokenService(), viewModel.getSwapService(), viewModel.getKeyService(), this);
-            confirmationDialog.setCanceledOnTouchOutside(false);
-            confirmationDialog.show();
-            sendAmount = NEGATIVE;
         }
     }
 
@@ -649,24 +572,17 @@ public class SwapActivity extends BaseActivity implements AmountReadyCallback, S
         }
     }
 
-    ActivityResultLauncher<Intent> getGasSettings = registerForActivityResult(new ActivityResultContracts.StartActivityForResult(),
-            result -> confirmationDialog.setCurrentGasIndex(result));
 
     @Override
     public ActivityResultLauncher<Intent> gasSelectLauncher()
     {
-        return getGasSettings;
+        return null;//getGasSettings;
     }
 
     @Override
     public void notifyConfirm(String mode)
     {
         viewModel.actionSheetConfirm(mode);
-    }
-
-    private void txWritten(TransactionData transactionData)
-    {
-        confirmationDialog.transactionWritten(transactionData.txHash);
     }
 
     //Transaction failed to be sent
@@ -682,56 +598,6 @@ public class SwapActivity extends BaseActivity implements AmountReadyCallback, S
             showTxnErrorDialog(throwable);
         }
         confirmationDialog.dismiss();
-    }
-
-    private void estimateError(final Web3Transaction w3tx, final byte[] transactionBytes, final String txSendAddress, final String resolvedAddress)
-    {
-        if (dialog != null && dialog.isShowing()) dialog.dismiss();
-        dialog = new AWalletAlertDialog(this);
-        dialog.setIcon(WARNING);
-        dialog.setTitle(R.string.confirm_transaction);
-        dialog.setMessage(R.string.error_transaction_may_fail);
-        dialog.setButtonText(R.string.button_ok);
-        dialog.setSecondaryButtonText(R.string.action_cancel);
-        dialog.setButtonListener(v -> {
-            BigInteger gasEstimate = GasService.getDefaultGasLimit(token, w3tx);
-            checkConfirm(gasEstimate, transactionBytes, txSendAddress, resolvedAddress);
-        });
-
-        dialog.setSecondaryButtonListener(v -> {
-            dialog.dismiss();
-        });
-
-        dialog.show();
-    }
-
-    void showNodeNotSyncSheet()
-    {
-        Timber.d("showNodeNotSync: ");
-        try
-        {
-            if (alertDialog != null && alertDialog.isShowing()) alertDialog.dismiss();
-            alertDialog = new AWalletAlertDialog(this, R.drawable.ic_warning);
-            alertDialog.setTitle(R.string.title_ens_lookup_warning);
-            alertDialog.setMessage(R.string.message_ens_node_not_sync);
-            alertDialog.setButtonText(R.string.action_cancel);
-            alertDialog.setButtonListener(v -> alertDialog.dismiss());
-            alertDialog.setSecondaryButtonText(R.string.ignore);
-            alertDialog.setSecondaryButtonListener(v -> {
-//                addressInput.setEnsHandlerNodeSyncFlag(false);  // skip node sync check
-//                // re enter current input to resolve again
-//                String currentInput = addressInput.getEditText().getText().toString();
-//                addressInput.getEditText().setText("");
-//                addressInput.getEditText().setText(currentInput);
-//                addressInput.getEditText().setSelection(currentInput.length());
-                alertDialog.dismiss();
-            });
-            alertDialog.show();
-        }
-        catch (Exception e)
-        {
-            Timber.e(e);
-        }
     }
 
     void showTxnErrorDialog(Throwable t)
