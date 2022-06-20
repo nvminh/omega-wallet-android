@@ -3,7 +3,6 @@ package com.omegawallet.app.widget;
 import static com.google.android.material.bottomsheet.BottomSheetBehavior.STATE_EXPANDED;
 
 import android.app.Activity;
-import android.util.Log;
 import android.view.View;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
@@ -20,7 +19,6 @@ import com.alphawallet.app.service.KeyService;
 import com.alphawallet.app.service.TokensService;
 import com.alphawallet.app.ui.HomeActivity;
 import com.alphawallet.app.ui.WalletConnectActivity;
-import com.alphawallet.app.ui.widget.entity.ActionSheetCallback;
 import com.alphawallet.app.util.Utils;
 import com.alphawallet.app.widget.ActionSheetMode;
 import com.alphawallet.app.widget.AddressDetailView;
@@ -35,22 +33,18 @@ import com.alphawallet.app.widget.WalletConnectRequestWidget;
 import com.google.android.material.bottomsheet.BottomSheetBehavior;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.omegawallet.app.service.SwapService;
-
-import org.web3j.protocol.core.RemoteFunctionCall;
+import com.omegawallet.app.ui.widget.entity.SwapActionSheetCallback;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
-import java.util.List;
 
 /**
  * Created by JB on 17/11/2020.
  */
 public class SwapActionSheetDialog extends BottomSheetDialog implements StandardFunctionInterface, ActionSheetInterface
 {
-    public static final String WETH_ADDRESS = "0xc778417E063141139Fce010982780140Aa0cD5Ab";
 
     private final ImageView cancelButton;
     private final BalanceDisplayWidget balanceDisplay;
@@ -71,7 +65,7 @@ public class SwapActionSheetDialog extends BottomSheetDialog implements Standard
     private final KeyService keyService;
     private final SwapService swapService;
 
-    private final ActionSheetCallback actionSheetCallback;
+    private final SwapActionSheetCallback actionSheetCallback;
     private final Wallet wallet;
     private SignAuthenticationCallback signCallback;
     private ActionSheetMode mode;
@@ -81,10 +75,11 @@ public class SwapActionSheetDialog extends BottomSheetDialog implements Standard
     private boolean actionCompleted;
     private boolean use1559Transactions = false;
     private final BigInteger sendAmount;
+    private final BigInteger toAmount;
 
-    public SwapActionSheetDialog(@NonNull Activity activity, BigInteger sendAmount, Wallet wallet, Token fromToken, Token toToken,
+    public SwapActionSheetDialog(@NonNull Activity activity, BigInteger sendAmount, BigInteger toAmount, Wallet wallet, Token fromToken, Token toToken,
                                  TokensService ts, SwapService swapService, KeyService keyService,
-                                 ActionSheetCallback aCallBack)
+                                 SwapActionSheetCallback aCallBack)
     {
         super(activity);
         View view = View.inflate(getContext(), R.layout.dialog_swap_action_sheet, null);
@@ -98,6 +93,7 @@ public class SwapActionSheetDialog extends BottomSheetDialog implements Standard
         this.keyService = keyService;
         this.wallet = wallet;
         this.sendAmount = sendAmount;
+        this.toAmount = toAmount;
 
         balanceDisplay = findViewById(R.id.balance);
         networkDisplay = findViewById(R.id.network_display_widget);
@@ -106,6 +102,7 @@ public class SwapActionSheetDialog extends BottomSheetDialog implements Standard
 
         amountDisplay = findViewById(R.id.amount_display);
         amountDisplay.setLabelAmount("From");
+
         toAmountDisplay = findViewById(R.id.to_amount_display);
         toAmountDisplay.setLabelAmount("To");
         assetDetailView = findViewById(R.id.asset_detail);
@@ -140,7 +137,8 @@ public class SwapActionSheetDialog extends BottomSheetDialog implements Standard
         functionBar.setupFunctions(this, new ArrayList<>(Collections.singletonList(R.string.action_confirm)));
         functionBar.revealButtons();
 
-        updateAmount();
+        //updateAmount();
+        showAmount(sendAmount, toAmount);
 
         setupCancelListeners();
         isAttached = true;
@@ -164,7 +162,7 @@ public class SwapActionSheetDialog extends BottomSheetDialog implements Standard
     @Override
     public void updateAmount()
     {
-        showAmount(getTransactionAmount().toBigInteger());
+
     }
 
     @Override
@@ -330,7 +328,7 @@ public class SwapActionSheetDialog extends BottomSheetDialog implements Standard
     private void sendTransaction()
     {
         functionBar.setVisibility(View.GONE);
-
+        actionSheetCallback.confirmSwap();
     }
 
     @Override
@@ -353,7 +351,7 @@ public class SwapActionSheetDialog extends BottomSheetDialog implements Standard
         if (bottomSheet != null) BottomSheetBehavior.from(bottomSheet).setState(STATE_EXPANDED);
     }
 
-    private void showAmount(final BigInteger amountVal)
+    private void showAmount(final BigInteger amountVal, final BigInteger toAmount)
     {
         amountDisplay.setAmountUsingToken(amountVal, fromToken, tokensService);
 
@@ -361,27 +359,8 @@ public class SwapActionSheetDialog extends BottomSheetDialog implements Standard
         BigInteger balanceAfterTransaction = fromToken.balance.toBigInteger();//.subtract(gasWidgetInterface.getValue());
         balanceDisplay.setNewBalanceText(fromToken, getTransactionAmount(), BigInteger.ZERO, balanceAfterTransaction);
 
-        toAmountDisplay.setAmountFromString(toToken.tokenInfo.symbol);
-        //toAmountDisplay.setAmountUsingToken(BigInteger.valueOf(10), toToken, tokensService);
-        keyService.getCredentials(wallet, activity, credentials -> {
-            try {
-                RemoteFunctionCall<List> call = swapService.getAmountsOut(amountVal, Arrays.asList(getAddress(fromToken), getAddress(toToken)), fromToken.getTokenInfo().chainId, credentials);
-                List list = call.sendAsync().get();
-                toAmountDisplay.setAmountUsingToken((BigInteger) list.get(1), toToken, tokensService);
-            } catch (Exception ex) {
-                Log.e("showAmount", "Error", ex);
-            }
-            return null;
-        });
+        toAmountDisplay.setAmountUsingToken(toAmount, toToken, tokensService);
 
-
-    }
-
-    private String getAddress(Token token) {
-        if("ETH".equalsIgnoreCase(token.tokenInfo.symbol)) {
-            return WETH_ADDRESS;
-        }
-        return token.tokenInfo.address;
     }
 
     private boolean isAttached;

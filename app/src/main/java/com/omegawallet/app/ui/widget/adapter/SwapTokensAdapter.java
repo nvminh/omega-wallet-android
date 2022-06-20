@@ -14,20 +14,20 @@ import com.alphawallet.app.ui.widget.TokensAdapterCallback;
 import com.alphawallet.app.ui.widget.adapter.TokensAdapter;
 import com.alphawallet.app.ui.widget.holder.BinderViewHolder;
 import com.alphawallet.app.ui.widget.holder.TokenHolder;
+import com.omegawallet.app.TokenUtil;
+import com.omegawallet.app.service.SwapService;
 
 public class SwapTokensAdapter extends TokensAdapter {
     private Token fromToken;
     private View selectedItem;
     private Token selectedToken;
     private int unselectedColor = -1;
+    private final SwapService swapService;
 
-    public SwapTokensAdapter(TokensAdapterCallback tokensAdapterCallback, AssetDefinitionService aService, TokensService tService, ActivityResultLauncher<Intent> launcher, Token fromToken) {
+    public SwapTokensAdapter(TokensAdapterCallback tokensAdapterCallback, AssetDefinitionService aService, TokensService tService, SwapService swapService, ActivityResultLauncher<Intent> launcher, Token fromToken) {
         super(tokensAdapterCallback, aService, tService, launcher);
+        this.swapService = swapService;
         this.fromToken = fromToken;
-    }
-
-    protected SwapTokensAdapter(TokensAdapterCallback tokensAdapterCallback, AssetDefinitionService aService) {
-        super(tokensAdapterCallback, aService);
     }
 
     @Override
@@ -36,7 +36,8 @@ public class SwapTokensAdapter extends TokensAdapter {
     }
 
     private boolean canSwap(TokenCardMeta token) {
-        return fromToken.getTokenInfo().chainId == token.getChain() && !fromToken.getAddress().equalsIgnoreCase(token.getAddress());
+        return fromToken.getTokenInfo().chainId == token.getChain() && !fromToken.getAddress().equalsIgnoreCase(token.getAddress()) &&
+                swapService.canSwap(token.getChain(), TokenUtil.getAddress(fromToken), TokenUtil.getAddress(tokensService.getToken(token.getChain(), token.getAddress())));
     }
 
     @Override

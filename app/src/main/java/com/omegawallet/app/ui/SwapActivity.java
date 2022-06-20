@@ -2,6 +2,7 @@ package com.omegawallet.app.ui;
 
 import static com.alphawallet.app.C.Key.WALLET;
 import static com.alphawallet.app.widget.AWalletAlertDialog.ERROR;
+import static com.alphawallet.app.widget.AWalletAlertDialog.SUCCESS;
 import static com.alphawallet.app.widget.AWalletAlertDialog.WARNING;
 import static com.alphawallet.ethereum.EthereumNetworkBase.MAINNET_ID;
 
@@ -10,6 +11,7 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
 import android.text.TextUtils;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -38,7 +40,6 @@ import com.alphawallet.app.repository.EthereumNetworkRepository;
 import com.alphawallet.app.ui.BaseActivity;
 import com.alphawallet.app.ui.QRScanning.QRScanner;
 import com.alphawallet.app.ui.WalletConnectActivity;
-import com.alphawallet.app.ui.widget.entity.ActionSheetCallback;
 import com.alphawallet.app.ui.widget.entity.AmountReadyCallback;
 import com.alphawallet.app.util.KeyboardUtils;
 import com.alphawallet.app.util.QRParser;
@@ -50,13 +51,20 @@ import com.alphawallet.app.widget.SignTransactionDialog;
 import com.alphawallet.token.entity.SalesOrderMalformed;
 import com.alphawallet.token.tools.Convert;
 import com.alphawallet.token.tools.ParseMagicLink;
+import com.omegawallet.app.TokenUtil;
 import com.omegawallet.app.ui.widget.adapter.SwapTokensAdapter;
+import com.omegawallet.app.ui.widget.entity.SwapActionSheetCallback;
 import com.omegawallet.app.viewmodel.SwapViewModel;
 import com.omegawallet.app.widget.SwapActionSheetDialog;
 
+import org.web3j.protocol.core.RemoteFunctionCall;
+import org.web3j.protocol.core.methods.response.TransactionReceipt;
+
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.net.SocketTimeoutException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -64,10 +72,11 @@ import dagger.hilt.android.AndroidEntryPoint;
 import timber.log.Timber;
 
 @AndroidEntryPoint
-public class SwapActivity extends BaseActivity implements AmountReadyCallback, StandardFunctionInterface, ActionSheetCallback
+public class SwapActivity extends BaseActivity implements AmountReadyCallback, StandardFunctionInterface, SwapActionSheetCallback
 {
     private static final BigDecimal NEGATIVE = BigDecimal.ZERO.subtract(BigDecimal.ONE);
     private static final String SWAP_ADDRESS = "0xAFe340fd5004391EA27F876e2Fd1B45140792DC2";
+
 
     SwapViewModel viewModel;
 
@@ -80,11 +89,53 @@ public class SwapActivity extends BaseActivity implements AmountReadyCallback, S
 
     private InputAmount amountInput;
     private BigDecimal sendAmount;
+    private BigInteger toAmount;
     private SwapActionSheetDialog confirmationDialog;
     private AWalletAlertDialog alertDialog;
     private SwapTokensAdapter tokenViewAdapter;
     private RecyclerView tokenView;
 
+    @Override
+    public void confirmSwap() {
+        viewModel.getKeyService().getCredentials(wallet, this, credentials -> {
+            try {
+                sendSwapRequest();
+                RemoteFunctionCall<TransactionReceipt> call = viewModel.getSwapService().swapExactTokensForTokens(token.getTokenInfo().chainId, credentials,
+                        sendAmount.toBigInteger(), toAmount, Arrays.asList(TokenUtil.getAddress(token), TokenUtil.getAddress(tokenViewAdapter.getSelectedToken())),
+                        wallet.address, BigInteger.valueOf(2000000000));
+                TransactionReceipt transactionReceipt = call.sendAsync().get();
+                showSwapResult(transactionReceipt);
+
+            } catch (Exception ex) {
+                Log.e("showAmount", "Error", ex);
+                showTxnErrorDialog(ex);
+            }
+            return null;
+        });
+    }
+
+    private void showSwapResult(TransactionReceipt transactionReceipt) {
+        clearAlert();
+        dialog = new AWalletAlertDialog(this);
+        dialog.setTitle(R.string.title_swap_result);
+        dialog.setMessage(transactionReceipt.toString());
+        dialog.setIcon(SUCCESS);
+        dialog.setButtonText(R.string.button_ok);
+        dialog.setButtonListener(v -> {
+            dialog.dismiss();
+        });
+        dialog.show();
+    }
+
+    private void sendSwapRequest() {
+        clearAlert();
+        dialog = new AWalletAlertDialog(this);
+        dialog.setTitle(getString(R.string.send_swap_request));
+        dialog.setIcon(AWalletAlertDialog.NONE);
+        dialog.setProgressMode();
+        dialog.setCancelable(false);
+        dialog.show();
+    }
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState)
@@ -134,7 +185,8 @@ public class SwapActivity extends BaseActivity implements AmountReadyCallback, S
                 return false;
             }
         });
-        tokenViewAdapter = new SwapTokensAdapter(null, viewModel.getAssetDefinitionService(), viewModel.getTokenService(), null, token);
+        tokenViewAdapter = new SwapTokensAdapter(null, viewModel.getAssetDefinitionService(), viewModel.getTokenService(),
+                viewModel.getSwapService(), null, token);
         tokenView.setAdapter(tokenViewAdapter);
         viewModel.tokens().observe(this, this::onTokens);
         viewModel.fetchTokens(wallet);
@@ -340,15 +392,19 @@ public class SwapActivity extends BaseActivity implements AmountReadyCallback, S
         dialog.show();
     }
 
-    private void calculateEstimateDialog()
+    private void gettingTargetAmount()
     {
-        if (dialog != null && dialog.isShowing()) dialog.dismiss();
+        clearAlert();
         dialog = new AWalletAlertDialog(this);
-        dialog.setTitle(getString(R.string.calc_gas_limit));
+        dialog.setTitle(getString(R.string.getting_target_amount));
         dialog.setIcon(AWalletAlertDialog.NONE);
         dialog.setProgressMode();
         dialog.setCancelable(false);
         dialog.show();
+    }
+
+    private void clearAlert() {
+        if (dialog != null && dialog.isShowing()) dialog.dismiss();
     }
 
     private void validateEIP681Request(QRResult result, boolean overrideNetwork)
@@ -456,15 +512,20 @@ public class SwapActivity extends BaseActivity implements AmountReadyCallback, S
         dialog.show();
     }
 
-    private void displayScanError()
+    private void displayError(int titleId)
     {
         if (dialog != null && dialog.isShowing()) dialog.dismiss();
         dialog = new AWalletAlertDialog(this);
         dialog.setIcon(AWalletAlertDialog.ERROR);
-        dialog.setTitle(R.string.toast_qr_code_no_address);
+        dialog.setTitle(titleId);
         dialog.setButtonText(R.string.dialog_ok);
         dialog.setButtonListener(v -> dialog.dismiss());
         dialog.show();
+    }
+
+    private void displayScanError()
+    {
+        displayError(R.string.toast_qr_code_no_address);
     }
 
     private void displayScanError(int titleId, String message)
@@ -523,11 +584,33 @@ public class SwapActivity extends BaseActivity implements AmountReadyCallback, S
     }
 
     private void showConfirmDialog() {
-        if (dialog != null && dialog.isShowing()) dialog.dismiss();
-        confirmationDialog = new SwapActionSheetDialog(this, sendAmount.toBigInteger(), wallet, token, tokenViewAdapter.getSelectedToken(), viewModel.getTokenService(), viewModel.getSwapService(), viewModel.getKeyService(), this);
-        confirmationDialog.setCanceledOnTouchOutside(false);
-        confirmationDialog.show();
-        sendAmount = NEGATIVE;
+        viewModel.getKeyService().getCredentials(wallet, this, credentials -> {
+            try {
+                gettingTargetAmount();
+                Token fromToken = token;
+                Token toToken = tokenViewAdapter.getSelectedToken();
+                BigInteger fromAmount = sendAmount.toBigInteger();
+                RemoteFunctionCall<List> call = viewModel.getSwapService().getAmountsOut(fromAmount,
+                        Arrays.asList(TokenUtil.getAddress(fromToken), TokenUtil.getAddress(toToken)), fromToken.getTokenInfo().chainId, credentials);
+                List list = call.sendAsync().get();
+
+                toAmount = (BigInteger) list.get(1);
+                if (dialog != null && dialog.isShowing()) dialog.dismiss();
+                confirmationDialog = new SwapActionSheetDialog(this, sendAmount.toBigInteger(),
+                        toAmount, wallet, token, tokenViewAdapter.getSelectedToken(), viewModel.getTokenService(),
+                        viewModel.getSwapService(), viewModel.getKeyService(), this);
+                confirmationDialog.setCanceledOnTouchOutside(false);
+                confirmationDialog.show();
+                //sendAmount = NEGATIVE;
+
+            } catch (Exception ex) {
+                Log.e("showAmount", "Error", ex);
+                showTxnErrorDialog(ex);
+            } finally {
+                clearAlert();
+            }
+            return null;
+        });
     }
 
     @Override

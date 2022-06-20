@@ -57,6 +57,7 @@ import io.realm.Realm;
 
 public class Token
 {
+
     public final static int TOKEN_BALANCE_PRECISION = 4;
     public final static int TOKEN_BALANCE_FOCUS_PRECISION = 5;
 

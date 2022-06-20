@@ -936,4 +936,7 @@
     <string name="action_node_status">Node Status</string>
     <string name="swap_request">Swap Request</string>
     <string name="title_activity_swap">Swap</string>
+    <string name="getting_target_amount">Getting Target Amount</string>
+    <string name="send_swap_request">Send Swap Request</string>
+    <string name="title_swap_result">Swap Result</string>
 </resources>
