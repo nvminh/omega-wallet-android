@@ -169,6 +169,10 @@ dependencies {
     // WARNING!  users google gms summarily, like immune systems cleansing infections
     // WARNING! WARNING!  WARNING!  WARNING!  WARNING!  WARNING!  WARNING!  WARNING!
 
+    implementation ('org.bitcoinj:bitcoinj-core:0.16.1') {
+        exclude group: 'org.bouncycastle'
+        exclude group: 'com.google.protobuf'
+    }
     // Ethereum client
     implementation "org.web3j:tuples:4.5.17"
     implementation fileTree(include: ['*.jar'], dir: 'libs')

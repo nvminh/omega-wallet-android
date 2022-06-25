@@ -97,14 +97,14 @@ public class SwapActivity extends BaseActivity implements AmountReadyCallback, S
 
     @Override
     public void confirmSwap() {
+        confirmationDialog.dismiss();
+        sendSwapRequest();
         viewModel.getKeyService().getCredentials(wallet, this, credentials -> {
             try {
-                sendSwapRequest();
                 RemoteFunctionCall<TransactionReceipt> call = viewModel.getSwapService().swapExactTokensForTokens(token.getTokenInfo().chainId, credentials,
                         sendAmount.toBigInteger(), toAmount, Arrays.asList(TokenUtil.getAddress(token), TokenUtil.getAddress(tokenViewAdapter.getSelectedToken())),
                         wallet.address, BigInteger.valueOf(2000000000));
-                TransactionReceipt transactionReceipt = call.sendAsync().get();
-                showSwapResult(transactionReceipt);
+                showSwapResult(call.sendAsync().get());
 
             } catch (Exception ex) {
                 Log.e("showAmount", "Error", ex);
@@ -113,6 +113,7 @@ public class SwapActivity extends BaseActivity implements AmountReadyCallback, S
             return null;
         });
     }
+
 
     private void showSwapResult(TransactionReceipt transactionReceipt) {
         clearAlert();
@@ -584,9 +585,9 @@ public class SwapActivity extends BaseActivity implements AmountReadyCallback, S
     }
 
     private void showConfirmDialog() {
+        gettingTargetAmount();
         viewModel.getKeyService().getCredentials(wallet, this, credentials -> {
             try {
-                gettingTargetAmount();
                 Token fromToken = token;
                 Token toToken = tokenViewAdapter.getSelectedToken();
                 BigInteger fromAmount = sendAmount.toBigInteger();

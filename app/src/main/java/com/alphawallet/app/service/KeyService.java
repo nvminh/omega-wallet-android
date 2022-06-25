@@ -1133,6 +1133,9 @@ public class KeyService implements AuthenticationCallback, PinAuthenticationCall
             case KEYSTORE_LEGACY:
                 password = new String(getLegacyPassword(context, currentWallet.address));
                 break;
+            case HDKEY:
+                password = unpackMnemonic();
+                break;
         }
         File keyFolder = new File(context.getFilesDir(), KEYSTORE_FOLDER);
         return KeystoreAccountService.getCredentials(keyFolder, currentWallet.address, password);
@@ -1256,6 +1259,7 @@ public class KeyService implements AuthenticationCallback, PinAuthenticationCall
             fos = new FileOutputStream(file);
             // Writes bytes from the specified byte array to this file output stream
             fos.write(data);
+            Timber.i("Wrote to file: " + path);
             return true;
         }
         catch (FileNotFoundException e)

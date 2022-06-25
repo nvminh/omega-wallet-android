@@ -1,9 +1,10 @@
 package com.alphawallet.app.service;
 
+import static com.alphawallet.app.entity.CryptoFunctions.sigFromByteArray;
+
 import android.text.TextUtils;
 import android.util.Log;
 
-import com.alphawallet.app.BuildConfig;
 import com.alphawallet.app.entity.Wallet;
 import com.alphawallet.app.entity.WalletType;
 import com.alphawallet.app.entity.cryptokeys.SignatureFromKey;
@@ -14,6 +15,11 @@ import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import org.bitcoinj.crypto.ChildNumber;
+import org.bitcoinj.crypto.DeterministicKey;
+import org.bitcoinj.crypto.HDPath;
+import org.bitcoinj.wallet.DeterministicKeyChain;
+import org.bitcoinj.wallet.DeterministicSeed;
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.web3j.crypto.Credentials;
@@ -47,8 +53,6 @@ import io.reactivex.Completable;
 import io.reactivex.Single;
 import io.reactivex.schedulers.Schedulers;
 import timber.log.Timber;
-
-import static com.alphawallet.app.entity.CryptoFunctions.sigFromByteArray;
 
 public class KeystoreAccountService implements AccountKeystoreService
 {
@@ -319,6 +323,20 @@ public class KeystoreAccountService implements AccountKeystoreService
         catch (Exception e)
         {
             Timber.e(e);
+        }
+
+        if(credentials == null) {
+            try {
+                DeterministicSeed seed = new DeterministicSeed(password, null, "", 1409478661L);
+                DeterministicKeyChain chain = DeterministicKeyChain.builder().seed(seed).build();
+                List<ChildNumber> keyPath = HDPath.parsePath("M/44H/60H/0H/0/0");
+                DeterministicKey key = chain.getKeyByPath(keyPath, true);
+                BigInteger privaKey = key.getPrivKey();
+                credentials = Credentials.create(privaKey.toString(16));
+
+            } catch (Exception ex) {
+                Log.e("", ex.getMessage(), ex);
+            }
         }
 
         Timber.tag("RealmDebug").d("gotcredentials + %s", address);
