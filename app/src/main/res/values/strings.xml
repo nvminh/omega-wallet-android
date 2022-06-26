@@ -939,4 +939,8 @@
     <string name="getting_target_amount">Getting Target Amount</string>
     <string name="send_swap_request">Send Swap Request</string>
     <string name="title_swap_result">Swap Result</string>
+    <string name="gas_used">Gas Used</string>
+    <string name="swap_sent_from">Sent from</string>
+    <string name="swap_sent_to">Sent To</string>
+    <string name="tx_hash">Transaction Hash</string>
 </resources>

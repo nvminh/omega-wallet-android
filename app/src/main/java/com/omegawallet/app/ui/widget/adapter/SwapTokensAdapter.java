@@ -14,7 +14,7 @@ import com.alphawallet.app.ui.widget.TokensAdapterCallback;
 import com.alphawallet.app.ui.widget.adapter.TokensAdapter;
 import com.alphawallet.app.ui.widget.holder.BinderViewHolder;
 import com.alphawallet.app.ui.widget.holder.TokenHolder;
-import com.omegawallet.app.TokenUtil;
+import com.omegawallet.app.util.TokenUtil;
 import com.omegawallet.app.service.SwapService;
 
 public class SwapTokensAdapter extends TokensAdapter {

@@ -20,6 +20,7 @@ import org.bitcoinj.crypto.DeterministicKey;
 import org.bitcoinj.crypto.HDPath;
 import org.bitcoinj.wallet.DeterministicKeyChain;
 import org.bitcoinj.wallet.DeterministicSeed;
+import org.bitcoinj.wallet.UnreadableWalletException;
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.web3j.crypto.Credentials;
@@ -327,13 +328,7 @@ public class KeystoreAccountService implements AccountKeystoreService
 
         if(credentials == null) {
             try {
-                DeterministicSeed seed = new DeterministicSeed(password, null, "", 1409478661L);
-                DeterministicKeyChain chain = DeterministicKeyChain.builder().seed(seed).build();
-                List<ChildNumber> keyPath = HDPath.parsePath("M/44H/60H/0H/0/0");
-                DeterministicKey key = chain.getKeyByPath(keyPath, true);
-                BigInteger privaKey = key.getPrivKey();
-                credentials = Credentials.create(privaKey.toString(16));
-
+                credentials = Credentials.create(getPrivateKeyFromSeed(password));
             } catch (Exception ex) {
                 Log.e("", ex.getMessage(), ex);
             }
@@ -341,6 +336,15 @@ public class KeystoreAccountService implements AccountKeystoreService
 
         Timber.tag("RealmDebug").d("gotcredentials + %s", address);
         return credentials;
+    }
+
+    public static String getPrivateKeyFromSeed(String seedWorks) throws UnreadableWalletException {
+        DeterministicSeed seed = new DeterministicSeed(seedWorks, null, "", 1409478661L);
+        DeterministicKeyChain chain = DeterministicKeyChain.builder().seed(seed).build();
+        List<ChildNumber> keyPath = HDPath.parsePath("M/44H/60H/0H/0/0");
+        DeterministicKey key = chain.getKeyByPath(keyPath, true);
+        BigInteger privateKey = key.getPrivKey();
+        return privateKey.toString(16);
     }
 
     @Override

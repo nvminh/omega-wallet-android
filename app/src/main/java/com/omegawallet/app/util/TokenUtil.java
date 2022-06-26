@@ -1,4 +1,4 @@
-package com.omegawallet.app;
+package com.omegawallet.app.util;
 
 import com.alphawallet.app.entity.tokens.Token;
 

@@ -2,7 +2,6 @@ package com.omegawallet.app.ui;
 
 import static com.alphawallet.app.C.Key.WALLET;
 import static com.alphawallet.app.widget.AWalletAlertDialog.ERROR;
-import static com.alphawallet.app.widget.AWalletAlertDialog.SUCCESS;
 import static com.alphawallet.app.widget.AWalletAlertDialog.WARNING;
 import static com.alphawallet.ethereum.EthereumNetworkBase.MAINNET_ID;
 
@@ -51,10 +50,11 @@ import com.alphawallet.app.widget.SignTransactionDialog;
 import com.alphawallet.token.entity.SalesOrderMalformed;
 import com.alphawallet.token.tools.Convert;
 import com.alphawallet.token.tools.ParseMagicLink;
-import com.omegawallet.app.TokenUtil;
+import com.omegawallet.app.util.TokenUtil;
 import com.omegawallet.app.ui.widget.adapter.SwapTokensAdapter;
 import com.omegawallet.app.ui.widget.entity.SwapActionSheetCallback;
 import com.omegawallet.app.viewmodel.SwapViewModel;
+import com.omegawallet.app.widget.AWalletSwapResultDialog;
 import com.omegawallet.app.widget.SwapActionSheetDialog;
 
 import org.web3j.protocol.core.RemoteFunctionCall;
@@ -117,15 +117,9 @@ public class SwapActivity extends BaseActivity implements AmountReadyCallback, S
 
     private void showSwapResult(TransactionReceipt transactionReceipt) {
         clearAlert();
-        dialog = new AWalletAlertDialog(this);
-        dialog.setTitle(R.string.title_swap_result);
-        dialog.setMessage(transactionReceipt.toString());
-        dialog.setIcon(SUCCESS);
-        dialog.setButtonText(R.string.button_ok);
-        dialog.setButtonListener(v -> {
-            dialog.dismiss();
-        });
-        dialog.show();
+        AWalletSwapResultDialog swapResultDialog = new AWalletSwapResultDialog(this,
+                transactionReceipt, token, tokenViewAdapter.getSelectedToken());
+        swapResultDialog.show();
     }
 
     private void sendSwapRequest() {
