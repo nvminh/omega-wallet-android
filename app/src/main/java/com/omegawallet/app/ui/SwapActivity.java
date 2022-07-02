@@ -75,8 +75,6 @@ import timber.log.Timber;
 public class SwapActivity extends BaseActivity implements AmountReadyCallback, StandardFunctionInterface, SwapActionSheetCallback
 {
     private static final BigDecimal NEGATIVE = BigDecimal.ZERO.subtract(BigDecimal.ONE);
-    private static final String SWAP_ADDRESS = "0xAFe340fd5004391EA27F876e2Fd1B45140792DC2";
-
 
     SwapViewModel viewModel;
 
@@ -101,7 +99,11 @@ public class SwapActivity extends BaseActivity implements AmountReadyCallback, S
         sendSwapRequest();
         viewModel.getKeyService().getCredentials(wallet, this, credentials -> {
             try {
-                RemoteFunctionCall<TransactionReceipt> call = viewModel.getSwapService().swapExactTokensForTokens(token.getTokenInfo().chainId, credentials,
+
+                RemoteFunctionCall<TransactionReceipt> call = viewModel.getSwapService().approve(
+                        token.getTokenInfo().chainId, credentials,TokenUtil.getAddress(token), sendAmount.toBigInteger());
+                call.sendAsync().get();
+                call = viewModel.getSwapService().swapExactTokensForTokens(token.getTokenInfo().chainId, credentials,
                         sendAmount.toBigInteger(), toAmount, Arrays.asList(TokenUtil.getAddress(token), TokenUtil.getAddress(tokenViewAdapter.getSelectedToken())),
                         wallet.address, BigInteger.valueOf(2000000000));
                 showSwapResult(call.sendAsync().get());

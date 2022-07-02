@@ -4,6 +4,8 @@ import com.alphawallet.app.repository.TokenRepository;
 import com.alphawallet.app.service.GasService;
 import com.alphawallet.app.service.KeyService;
 import com.alphawallet.ethereum.EthereumNetworkBase;
+import com.omegawallet.app.web3.swap.IERC20;
+import com.omegawallet.app.web3.swap.IUniswapV2Pair;
 import com.omegawallet.app.web3.swap.UniswapV2Router02;
 
 import org.web3j.crypto.Credentials;
@@ -77,6 +79,14 @@ public class SwapService {
         return UniswapV2Router02.load(SWAP_ADDRESS, TokenRepository.getWeb3jService(chainId), credentials, gasProvider);
     }
 
+    private IUniswapV2Pair getIUniswapV2Pair(long chainId, Credentials credentials) {
+        return IUniswapV2Pair.load(SWAP_ADDRESS, TokenRepository.getWeb3jService(chainId), credentials, gasProvider);
+    }
+
+    private IERC20 getIERC20(long chainId, Credentials credentials, String token) {
+        return IERC20.load(token, TokenRepository.getWeb3jService(chainId), credentials, gasProvider);
+    }
+
     public RemoteFunctionCall<List> getAmountsOut(BigInteger amountIn, List<String> path, long chainId, Credentials credentials) {
         return getUniswapRouter(chainId, credentials).getAmountsOut(amountIn, path);
     }
@@ -88,5 +98,9 @@ public class SwapService {
     public boolean canSwap(long chainId, String tokenA, String tokenB) {
         Set<String> set = swapMap.get(chainId);
         return set != null && set.contains((tokenA + tokenB).toLowerCase());
+    }
+
+    public RemoteFunctionCall<TransactionReceipt> approve(long chainId, Credentials credentials, String token, BigInteger value) {
+        return getIERC20(chainId, credentials, token).approve(SWAP_ADDRESS, value);
     }
 }
